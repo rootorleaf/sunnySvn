@@ -45,3 +45,7 @@ yarn-error.log*
 # ---- Misc ----
 *.pem
 coverage/
+
+# 图标源图（本地保留，供 tauri icon 重新生成）
+app-icon.png
+src-tauri/app-icon.png

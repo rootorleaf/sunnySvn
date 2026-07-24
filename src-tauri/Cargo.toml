@@ -1,0 +1,36 @@
+[package]
+name = "sunnysvn"
+version = "0.1.0"
+description = "轻量级 macOS SVN 客户端 (Apple Silicon)"
+authors = ["rootorleaf"]
+edition = "2021"
+rust-version = "1.77"
+
+# 库 + 二进制：Tauri 2 约定，移动端复用 lib
+[lib]
+name = "sunnysvn_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 解析 svn --xml 输出
+quick-xml = { version = "0.36", features = ["serialize"] }
+# 异步子进程管理
+tokio = { version = "1", features = ["process", "io-util", "rt", "macros"] }
+# 错误处理
+thiserror = "1"
+# 路径哈希生成稳定 id
+sha2 = "0.10"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

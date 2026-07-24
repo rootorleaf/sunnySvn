@@ -10,48 +10,49 @@
 目标：项目可运行，能添加工作副本并展示 `svn status`，能执行 update。
 
 ### 0.1 项目脚手架
-- [ ] 初始化 Tauri 2 + React 18 + TS + Vite 项目结构
-- [ ] 配置 `package.json` / `vite.config.ts` / `tsconfig.json`
-- [ ] 配置 `src-tauri/`（Cargo.toml、tauri.conf.json，target 指定 aarch64-apple-darwin）
-- [ ] 引入前端依赖：Ant Design 5、Zustand、@tanstack/react-virtual、CodeMirror 6
-- [ ] 引入后端依赖：tokio、quick-xml、keyring、serde
-- [ ] 建立目录结构（src/api、stores、components、views；src-tauri/src/commands、svn、auth.rs、config.rs）
-- [ ] `npm run tauri dev` 能启动空白窗口
-- **验收**：开发窗口正常启动，前后端 IPC 通路打通（一个 ping 命令返回）
+- [x] 初始化 Tauri 2 + React 18 + TS + Vite 项目结构
+- [x] 配置 `package.json` / `vite.config.ts` / `tsconfig.json`
+- [x] 配置 `src-tauri/`（Cargo.toml、tauri.conf.json）
+- [x] 引入前端依赖：Ant Design 5、Zustand、@ant-design/icons（CodeMirror / react-virtual 延后到 M1 diff / 大列表时引入）
+- [x] 引入后端依赖：tokio、quick-xml、serde、thiserror、sha2（keyring 延后到 M2 认证）
+- [x] 建立目录结构（src/api、stores、components、views；src-tauri/src/commands、svn）
+- [~] `npm run tauri dev` 能启动空白窗口（代码就绪，无头环境未实际启动窗口，待有 GUI 时验证）
+- **验收**：TS 检查通过、Rust 零警告编译、前后端 build 均成功、6 个单元测试全过；实际窗口启动待 GUI 验证
 
 ### 0.2 SVN 二进制定位
-- [ ] `svn/locator.rs`：PATH → /opt/homebrew/bin/svn → /usr/local/bin/svn → 手动指定
-- [ ] 未检测到时返回结构化错误，前端引导 `brew install subversion`
-- [ ] 读取并展示 `svn --version`
+- [x] `svn/locator.rs`：PATH → /opt/homebrew/bin/svn → /usr/local/bin/svn（手动指定延后到设置页）
+- [x] 未检测到时返回结构化错误（SVN_NOT_FOUND），前端 `SvnGuard` 引导 `brew install subversion`
+- [x] 读取并展示 `svn --version`
 - **验收**：本机能定位到 svn 1.14.5，缺失时给出引导提示
 
 ### 0.3 SVN 命令执行器
-- [ ] `svn/runner.rs`：封装子进程调用，强制 `LC_ALL=en_US.UTF-8`，统一 `--non-interactive`
-- [ ] 捕获 stdout / stderr / exit code
-- [ ] 基础错误码映射骨架（`svn/errors.rs`）
+- [x] `svn/runner.rs`：封装子进程调用，强制 `LC_ALL=en_US.UTF-8`，统一 `--non-interactive`
+- [x] 捕获 stdout / stderr / exit code
+- [x] 基础错误码映射骨架（`svn/errors.rs`，含 E###### 提取 + 单元测试）
 - **验收**：能执行任意 svn 只读命令并拿到原始输出
 
 ### 0.4 status 解析与展示
-- [ ] `svn/parser.rs`：解析 `svn status --xml`
-- [ ] `commands/`：暴露 `get_status(path)` IPC
-- [ ] 前端 `FileStatusTable` 组件：路径 / 状态角标（M/A/D/?/!/C/ignored）
-- [ ] 手动刷新按钮
-- **验收**：对本地工作副本展示正确的文件状态列表
+- [x] `svn/parser.rs`：解析 `svn status --xml`（含单元测试，覆盖自闭合与带 commit 子节点两种形态）
+- [x] `commands/`：暴露 `get_status(path)` IPC
+- [x] 前端 `FileStatusTable` 组件：路径 / 状态角标（M/A/D/?/!/C/ignored）
+- [x] 手动刷新按钮
+- **验收**：解析器对真实测试仓库 XML 输出结构验证通过；前端组件就绪，端到端展示待 GUI 验证
 
 ### 0.5 工作副本管理（基础）
-- [ ] `config.rs`：JSON 配置存储于 `~/Library/Application Support/sunnySvn/`
-- [ ] 添加 / 移除工作副本，侧栏列表，记住最近打开
-- [ ] 选中工作副本后加载其 status
-- **验收**：添加本地工作副本后侧栏显示，切换正常
+- [x] `config.rs`：JSON 配置存储于 `~/Library/Application Support/com.rootorleaf.sunnysvn/`
+- [x] 添加 / 移除工作副本（sha256 路径哈希做稳定 id），侧栏列表
+- [x] 选中工作副本后加载其 status
+- **验收**：逻辑就绪、编译通过；端到端交互待 GUI 验证
 
 ### 0.6 Update
-- [ ] `commands/`：暴露 `update(path)` IPC
-- [ ] 前端工具栏「更新」按钮，完成后刷新 status
-- **验收**：对测试仓库执行 update 成功，修订号更新
+- [x] `commands/`：暴露 `update_working_copy(path)` IPC（解析尾部修订号）
+- [x] 前端工具栏「更新」按钮，完成后刷新 status
+- **验收**：命令与按钮就绪；端到端 update 待 GUI 验证
 
 ### 0.7 测试仓库脚手架
-- [ ] 脚本：`svnadmin create` 建本地 `file://` 测试仓库，含中文路径样例
-- **验收**：可反复重建测试仓库供端到端验证
+- [x] 用 `svnadmin create` 建本地 `file://` 测试仓库（`/tmp/sunnysvn-test/repo`），验证 status/info XML 输出
+- [~] 中文路径样例（基础仓库已建，中文路径用例待补脚本固化）
+- **验收**：已建可用测试仓库，XML 输出结构与解析器假设吻合
 
 ---
 
