@@ -8,6 +8,11 @@
 
 ## [Unreleased]
 
+### 2026-07-24 — 命名规范
+- **约定**:对外/文档统一使用 **SunnySVN**;代码与接口标识(npm 包名 `sunnysvn`、crate 名、bundle id `com.rootorleaf.sunnysvn`、仓库名 `sunnySvn`)保持不变。
+- **变更**:README.md 按规范重写(SunnySVN 品牌、环境要求、开发命令、技术架构)。
+- **修复**:`src/api/config.ts` 注释中的配置存储路径与实际实现不一致(`sunnySvn/` → `com.rootorleaf.sunnysvn/`)。
+
 ### 2026-07-24 — 工程调整
 - **变更**:`plan.md`、`task-list.md` 改为仅本地保留,不再提交到 GitHub(加入 .gitignore 并从远端移除)。(`919a087`)
 

@@ -1,5 +1,5 @@
 // 工作副本列表的持久化接口，对应 src-tauri/src/commands/config.rs。
-// 实际存储在 ~/Library/Application Support/sunnySvn/config.json，由 Rust 侧负责读写。
+// 实际存储在 ~/Library/Application Support/com.rootorleaf.sunnysvn/config.json，由 Rust 侧负责读写。
 
 import { invoke } from "@tauri-apps/api/core";
 import type { WorkingCopy } from "../types";
