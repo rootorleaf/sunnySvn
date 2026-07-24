@@ -49,3 +49,7 @@ coverage/
 # 图标源图（本地保留，供 tauri icon 重新生成）
 app-icon.png
 src-tauri/app-icon.png
+
+# ---- 规划文档（仅本地保留，不入库）----
+plan.md
+task-list.md
