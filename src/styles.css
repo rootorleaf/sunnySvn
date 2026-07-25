@@ -113,3 +113,188 @@ body,
     color: #ddd;
   }
 }
+
+/* ===== M1: 工具栏 / 状态栏 ===== */
+
+.wc-toolbar {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.wc-statusbar {
+  padding: 4px 16px;
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: #888;
+  display: flex;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+/* 状态表选中行高亮 */
+.row-selected > td {
+  background: rgba(22, 119, 255, 0.08) !important;
+}
+
+/* ===== M1: 下部面板（差异 / 控制台）===== */
+
+.bottom-panel {
+  height: 300px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bottom-panel .ant-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.bottom-panel .ant-tabs-nav {
+  margin: 0 0 4px 0;
+  padding: 0 12px;
+}
+
+.bottom-panel .ant-tabs-content-holder {
+  flex: 1;
+  overflow: hidden;
+}
+
+.bottom-panel .ant-tabs-content,
+.bottom-panel .ant-tabs-tabpane {
+  height: 100%;
+}
+
+.panel-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* 差异视图 */
+.diff-wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.diff-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 12px;
+  font-size: 12px;
+  color: #888;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.diff-file {
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+.diff-container {
+  flex: 1;
+  overflow: auto;
+  font-size: 12px;
+}
+
+.diff-container .cm-mergeView {
+  height: 100%;
+}
+
+.diff-container .cm-editor {
+  font-size: 12px;
+}
+
+/* 控制台 */
+.console-wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.console-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 12px 8px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+}
+
+.console-line {
+  margin-bottom: 4px;
+}
+
+.console-cmd {
+  font-weight: 600;
+}
+
+.console-cmd.ok {
+  color: #389e0d;
+}
+
+.console-cmd.err {
+  color: #cf1322;
+}
+
+.console-duration {
+  margin-left: 8px;
+  font-weight: 400;
+  color: #999;
+  font-size: 11px;
+}
+
+.console-output {
+  margin: 2px 0 0 12px;
+  padding: 4px 8px;
+  background: rgba(128, 128, 128, 0.08);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 提交对话框文件列表 */
+.commit-file-list {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.commit-file-header {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.commit-file-scroll {
+  max-height: 240px;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.commit-file-row {
+  padding: 2px 12px;
+}
+
+/* 日志变更路径 */
+.log-paths {
+  padding: 4px 8px;
+}
+
+.log-path-row {
+  padding: 2px 0;
+}

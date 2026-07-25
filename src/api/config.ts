@@ -18,3 +18,8 @@ export function addWorkingCopy(path: string): Promise<WorkingCopy[]> {
 export function removeWorkingCopy(id: string): Promise<WorkingCopy[]> {
   return invoke<WorkingCopy[]>("remove_working_copy", { id });
 }
+
+/** 读取最近使用的提交信息（新的在前，提交成功后由后端自动记录） */
+export function listRecentMessages(): Promise<string[]> {
+  return invoke<string[]>("list_recent_messages");
+}

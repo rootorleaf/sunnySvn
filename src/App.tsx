@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Layout } from "antd";
 import { useAppStore } from "./stores/appStore";
+import { subscribeConsole } from "./stores/consoleStore";
 import { SvnGuard } from "./components/SvnGuard";
 import { Sidebar } from "./components/Sidebar";
 import { WorkingCopyView } from "./views/WorkingCopyView";
@@ -16,6 +17,14 @@ export default function App() {
     void detectSvn();
     void loadWorkingCopies();
   }, [detectSvn, loadWorkingCopies]);
+
+  // 订阅后端 svn 命令的控制台输出事件
+  useEffect(() => {
+    const sub = subscribeConsole();
+    return () => {
+      void sub.then((unlisten) => unlisten());
+    };
+  }, []);
 
   return (
     <SvnGuard>

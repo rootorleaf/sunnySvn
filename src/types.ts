@@ -52,3 +52,37 @@ export interface WorkingCopy {
   name: string; // 显示名（目录名）
   path: string; // 本地绝对路径
 }
+
+/** 单文件差异内容（BASE vs 工作区） */
+export interface FileDiff {
+  oldText: string;
+  newText: string;
+}
+
+/** 一条日志里的变更路径 */
+export interface ChangedPath {
+  /** A / M / D / R */
+  action: string;
+  /** 仓库内路径，如 /trunk/src/main.rs */
+  path: string;
+  /** file / dir */
+  kind: string;
+}
+
+/** 一条提交日志 */
+export interface LogEntry {
+  revision: number;
+  author: string;
+  /** ISO8601 原文 */
+  date: string;
+  message: string;
+  changedPaths: ChangedPath[];
+}
+
+/** 输出控制台的一条记录（由后端 svn-console 事件推送） */
+export interface ConsoleLine {
+  command: string;
+  output: string;
+  success: boolean;
+  durationMs: number;
+}

@@ -30,6 +30,30 @@ pub struct WorkingCopyInfo {
     pub relative_url: String,
 }
 
+/// 一条日志里的变更路径。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangedPath {
+    /// A / M / D / R
+    pub action: String,
+    /// 仓库内路径，如 /trunk/src/main.rs
+    pub path: String,
+    /// file / dir（svn 1.7+ 提供，缺省为空）
+    pub kind: String,
+}
+
+/// 一条提交日志，对齐前端 LogEntry。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogEntry {
+    pub revision: i64,
+    pub author: String,
+    /// ISO8601 原文，前端负责格式化
+    pub date: String,
+    pub message: String,
+    pub changed_paths: Vec<ChangedPath>,
+}
+
 /// svn 的单字符 item 状态映射为前端约定的字符串枚举。
 fn map_item_status(s: &str) -> String {
     match s {
@@ -206,6 +230,107 @@ pub fn parse_info(xml: &str) -> Result<WorkingCopyInfo, SvnError> {
     })
 }
 
+/// 解析 `svn log --xml -v` 的输出。
+///
+/// 结构大致为：
+/// ```xml
+/// <log>
+///   <logentry revision="2">
+///     <author>alice</author>
+///     <date>2026-07-24T11:04:46.113638Z</date>
+///     <paths>
+///       <path action="M" kind="file">/trunk/main.rs</path>
+///     </paths>
+///     <msg>提交说明</msg>
+///   </logentry>
+/// </log>
+/// ```
+pub fn parse_log(xml: &str) -> Result<Vec<LogEntry>, SvnError> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(true);
+
+    let mut entries: Vec<LogEntry> = Vec::new();
+
+    // 当前 logentry 的累加器
+    let mut cur_rev: i64 = 0;
+    let mut cur_author = String::new();
+    let mut cur_date = String::new();
+    let mut cur_msg = String::new();
+    let mut cur_paths: Vec<ChangedPath> = Vec::new();
+    // 当前 path 元素的属性与文本
+    let mut cur_path_action = String::new();
+    let mut cur_path_kind = String::new();
+    let mut cur_path_text = String::new();
+    // 元素栈：把 Text 归属到正确字段；Empty 元素不入栈
+    let mut stack: Vec<Vec<u8>> = Vec::new();
+
+    let mut buf = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                let name = e.name().as_ref().to_vec();
+                match name.as_slice() {
+                    b"logentry" => {
+                        cur_rev = attr(&e, b"revision")
+                            .and_then(|r| r.parse().ok())
+                            .unwrap_or(0);
+                        cur_author.clear();
+                        cur_date.clear();
+                        cur_msg.clear();
+                        cur_paths.clear();
+                    }
+                    b"path" => {
+                        cur_path_action = attr(&e, b"action").unwrap_or_default();
+                        cur_path_kind = attr(&e, b"kind").unwrap_or_default();
+                        cur_path_text.clear();
+                    }
+                    _ => {}
+                }
+                stack.push(name);
+            }
+            Ok(Event::Text(t)) => {
+                let text = t.unescape().unwrap_or_default().to_string();
+                // 文本可能因实体边界拆分，统一累加
+                match stack.last().map(|v| v.as_slice()) {
+                    Some(b"author") => cur_author.push_str(&text),
+                    Some(b"date") => cur_date.push_str(&text),
+                    Some(b"msg") => cur_msg.push_str(&text),
+                    Some(b"path") => cur_path_text.push_str(&text),
+                    _ => {}
+                }
+            }
+            Ok(Event::End(e)) => {
+                match e.name().as_ref() {
+                    b"path" => {
+                        cur_paths.push(ChangedPath {
+                            action: cur_path_action.clone(),
+                            path: cur_path_text.clone(),
+                            kind: cur_path_kind.clone(),
+                        });
+                    }
+                    b"logentry" => {
+                        entries.push(LogEntry {
+                            revision: cur_rev,
+                            author: cur_author.clone(),
+                            date: cur_date.clone(),
+                            message: cur_msg.clone(),
+                            changed_paths: cur_paths.clone(),
+                        });
+                    }
+                    _ => {}
+                }
+                stack.pop();
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => return Err(SvnError::internal(format!("解析 log XML 失败: {e}"))),
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(entries)
+}
+
 /// 从事件里读取指定属性值，找不到返回 None。
 fn attr(e: &quick_xml::events::BytesStart, key: &[u8]) -> Option<String> {
     e.attributes().flatten().find_map(|a| {
@@ -261,5 +386,55 @@ mod tests {
         assert_eq!(info.url, "https://svn.example.com/repo/trunk");
         assert_eq!(info.repository_root, "https://svn.example.com/repo");
         assert_eq!(info.relative_url, "^/trunk");
+    }
+
+    #[test]
+    fn parses_log_entries() {
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<log>
+<logentry revision="2">
+<author>alice</author>
+<date>2026-07-24T11:30:00.000000Z</date>
+<paths>
+<path action="M" kind="file">/trunk/main.rs</path>
+<path action="A" kind="file">/trunk/新增文件.md</path>
+</paths>
+<msg>修复 &amp; 优化：中文提交说明</msg>
+</logentry>
+<logentry revision="1">
+<author>bob</author>
+<date>2026-07-24T11:00:00.000000Z</date>
+<paths>
+<path action="A" kind="dir">/trunk</path>
+</paths>
+<msg>initial import</msg>
+</logentry>
+</log>"#;
+        let entries = parse_log(xml).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].revision, 2);
+        assert_eq!(entries[0].author, "alice");
+        assert_eq!(entries[0].message, "修复 & 优化：中文提交说明");
+        assert_eq!(entries[0].changed_paths.len(), 2);
+        assert_eq!(entries[0].changed_paths[1].path, "/trunk/新增文件.md");
+        assert_eq!(entries[0].changed_paths[1].action, "A");
+        assert_eq!(entries[1].revision, 1);
+        assert_eq!(entries[1].changed_paths[0].kind, "dir");
+    }
+
+    #[test]
+    fn parses_log_with_empty_msg() {
+        let xml = r#"<?xml version="1.0"?>
+<log>
+<logentry revision="3">
+<author>c</author>
+<date>2026-07-24T12:00:00.000000Z</date>
+<msg></msg>
+</logentry>
+</log>"#;
+        let entries = parse_log(xml).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].message, "");
+        assert!(entries[0].changed_paths.is_empty());
     }
 }

@@ -2,7 +2,7 @@
 // 前端只依赖这一层，不直接散落调用 invoke，便于统一错误处理与替换。
 
 import { invoke } from "@tauri-apps/api/core";
-import type { SvnInfo, StatusEntry, WorkingCopyInfo } from "../types";
+import type { SvnInfo, StatusEntry, WorkingCopyInfo, FileDiff, LogEntry } from "../types";
 
 /** 后端返回的结构化错误 */
 export interface SvnError {
@@ -46,4 +46,38 @@ export function isWorkingCopy(path: string): Promise<boolean> {
 /** 执行 update，返回更新后的修订号 */
 export function updateWorkingCopy(path: string): Promise<number> {
   return call<number>("update_working_copy", { path });
+}
+
+/** 提交选中文件（相对路径），返回新修订号 */
+export function commitFiles(path: string, files: string[], message: string): Promise<number> {
+  return call<number>("commit_files", { path, files, message });
+}
+
+/** 把未版本化文件加入版本控制 */
+export function addFiles(path: string, files: string[]): Promise<void> {
+  return call<void>("add_files", { path, files });
+}
+
+/** 删除文件：versioned 走 svn delete，unversioned 直接删文件系统 */
+export function deleteFiles(
+  path: string,
+  versioned: string[],
+  unversioned: string[],
+): Promise<void> {
+  return call<void>("delete_files", { path, versioned, unversioned });
+}
+
+/** 还原本地改动 */
+export function revertFiles(path: string, files: string[]): Promise<void> {
+  return call<void>("revert_files", { path, files });
+}
+
+/** 读取单文件 BASE / 工作区内容，供双栏 diff */
+export function getFileDiff(path: string, file: string): Promise<FileDiff> {
+  return call<FileDiff>("get_file_diff", { path, file });
+}
+
+/** 分页读取提交日志；beforeRev 传上一页最后一条的 revision - 1 */
+export function getLog(path: string, limit: number, beforeRev?: number): Promise<LogEntry[]> {
+  return call<LogEntry[]>("get_log", { path, limit, beforeRev: beforeRev ?? null });
 }

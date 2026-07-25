@@ -23,6 +23,9 @@ pub struct WorkingCopy {
 struct AppConfig {
     #[serde(default)]
     working_copies: Vec<WorkingCopy>,
+    /// 最近使用的提交信息（新的在前，去重，最多 20 条）
+    #[serde(default)]
+    recent_messages: Vec<String>,
 }
 
 /// 进程内配置缓存，避免每次命令都读盘；写操作同步落盘。
@@ -143,4 +146,28 @@ pub fn remove_working_copy(id: String) -> Result<Vec<WorkingCopy>, SvnError> {
     })?;
     with_config(|cfg| save_to_disk(cfg))??;
     with_config(|cfg| cfg.working_copies.clone())
+}
+
+/// 最大保留的提交信息条数。
+const MAX_RECENT_MESSAGES: usize = 20;
+
+/// 记录一条提交信息到历史（提交成功后由 svn_cmd 调用）。
+/// 去重后插到最前，超出上限截断；持久化失败静默忽略（不影响提交结果）。
+pub fn remember_message(message: &str) {
+    let msg = message.trim();
+    if msg.is_empty() {
+        return;
+    }
+    let _ = with_config(|cfg| {
+        cfg.recent_messages.retain(|m| m != msg);
+        cfg.recent_messages.insert(0, msg.to_string());
+        cfg.recent_messages.truncate(MAX_RECENT_MESSAGES);
+        save_to_disk(cfg)
+    });
+}
+
+/// 读取提交信息历史（新的在前）。
+#[tauri::command]
+pub fn list_recent_messages() -> Result<Vec<String>, SvnError> {
+    with_config(|cfg| cfg.recent_messages.clone())
 }

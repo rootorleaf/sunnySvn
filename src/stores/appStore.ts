@@ -22,6 +22,10 @@ interface AppState {
   statusLoading: boolean;
   statusError: SvnError | null;
 
+  // 状态表中选中的文件（驱动下部差异面板）
+  selectedFile: StatusEntry | null;
+  selectFile: (entry: StatusEntry | null) => void;
+
   // 动作
   detectSvn: () => Promise<void>;
   loadWorkingCopies: () => Promise<void>;
@@ -43,6 +47,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   statusEntries: [],
   statusLoading: false,
   statusError: null,
+
+  selectedFile: null,
+
+  selectFile(entry) {
+    set({ selectedFile: entry });
+  },
 
   async detectSvn() {
     set({ detecting: true, svnError: null });
@@ -83,7 +93,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   selectWorkingCopy(id: string | null) {
-    set({ selectedId: id, statusEntries: [], statusError: null });
+    set({ selectedId: id, statusEntries: [], statusError: null, selectedFile: null });
     if (id) {
       void get().refreshStatus();
     }
@@ -96,7 +106,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ statusLoading: true, statusError: null });
     try {
       const entries = await svnApi.getStatus(wc.path);
-      set({ statusEntries: entries, statusLoading: false });
+      // 刷新后若原选中文件已不在列表中，同步取消选中
+      const { selectedFile } = get();
+      const stillThere = selectedFile
+        ? entries.find((e) => e.path === selectedFile.path) ?? null
+        : null;
+      set({ statusEntries: entries, statusLoading: false, selectedFile: stillThere });
     } catch (e) {
       set({ statusError: e as SvnError, statusLoading: false });
     }

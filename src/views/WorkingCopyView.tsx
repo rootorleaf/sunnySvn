@@ -1,13 +1,25 @@
-import { useMemo } from "react";
-import { Button, Space, Typography, Empty, Alert, Spin, message } from "antd";
-import { ReloadOutlined, CloudDownloadOutlined } from "@ant-design/icons";
+// 主视图：工具栏（更新/提交/日志/刷新）+ 文件状态表 + 下部面板（差异/控制台）+ 状态栏。
+
+import { useMemo, useState } from "react";
+import { Alert, Button, Empty, Space, Spin, Typography, message } from "antd";
+import {
+  CloudDownloadOutlined,
+  ReloadOutlined,
+  CheckOutlined,
+  HistoryOutlined,
+} from "@ant-design/icons";
 import { useAppStore } from "../stores/appStore";
 import { FileStatusTable } from "../components/FileStatusTable";
-import type { SvnError } from "../api/svn";
+import { BottomPanel } from "../components/BottomPanel";
+import { CommitDialog } from "../components/CommitDialog";
+import { LogModal } from "../components/LogModal";
+import { showSvnError } from "../utils/errorDialog";
 
 const { Text } = Typography;
 
-// 主视图：顶部工具栏（刷新 / 更新）+ 文件状态表 + 底部状态栏。
+/** 视为「有改动」的状态（驱动提交按钮可用性与状态栏计数） */
+const CHANGED = new Set(["modified", "added", "deleted", "replaced", "unversioned", "conflicted", "missing"]);
+
 export function WorkingCopyView() {
   const selectedId = useAppStore((s) => s.selectedId);
   const workingCopies = useAppStore((s) => s.workingCopies);
@@ -17,22 +29,29 @@ export function WorkingCopyView() {
   const refreshStatus = useAppStore((s) => s.refreshStatus);
   const updateSelected = useAppStore((s) => s.updateSelected);
 
+  const [updating, setUpdating] = useState(false);
+  const [commitOpen, setCommitOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
+
   const selected = useMemo(
     () => workingCopies.find((w) => w.id === selectedId) ?? null,
     [workingCopies, selectedId],
   );
 
   const changedCount = useMemo(
-    () => statusEntries.filter((e) => e.itemStatus !== "normal" && e.itemStatus !== "none").length,
+    () => statusEntries.filter((e) => CHANGED.has(e.itemStatus)).length,
     [statusEntries],
   );
 
   async function handleUpdate() {
+    setUpdating(true);
     try {
       const rev = await updateSelected();
       if (rev != null) message.success(`已更新到修订 ${rev}`);
     } catch (e) {
-      message.error(`更新失败：${(e as SvnError).message}`);
+      showSvnError(e, "更新失败");
+    } finally {
+      setUpdating(false);
     }
   }
 
@@ -46,33 +65,32 @@ export function WorkingCopyView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div
-        style={{
-          padding: "8px 16px",
-          borderBottom: "1px solid var(--border)",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
+      <div className="wc-toolbar">
         <Space>
-          <Button
-            icon={<CloudDownloadOutlined />}
-            onClick={handleUpdate}
-            loading={statusLoading}
-          >
+          <Button icon={<CloudDownloadOutlined />} onClick={handleUpdate} loading={updating}>
             更新
+          </Button>
+          <Button
+            type="primary"
+            icon={<CheckOutlined />}
+            disabled={changedCount === 0}
+            onClick={() => setCommitOpen(true)}
+          >
+            提交
+          </Button>
+          <Button icon={<HistoryOutlined />} onClick={() => setLogOpen(true)}>
+            日志
           </Button>
           <Button icon={<ReloadOutlined />} onClick={() => void refreshStatus()}>
             刷新
           </Button>
         </Space>
-        <Text type="secondary" ellipsis style={{ marginLeft: 8 }}>
+        <Text type="secondary" ellipsis style={{ marginLeft: 8, flex: 1 }}>
           {selected.path}
         </Text>
       </div>
 
-      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+      <div style={{ flex: 1, overflow: "hidden", position: "relative", minHeight: 0 }}>
         {statusError ? (
           <Alert
             type="error"
@@ -90,19 +108,15 @@ export function WorkingCopyView() {
         )}
       </div>
 
-      <div
-        style={{
-          padding: "4px 16px",
-          borderTop: "1px solid var(--border)",
-          fontSize: 12,
-          color: "var(--text-secondary)",
-          display: "flex",
-          justifyContent: "space-between",
-        }}
-      >
+      <BottomPanel />
+
+      <div className="wc-statusbar">
         <span>{selected.name}</span>
         <span>{changedCount} 个改动</span>
       </div>
+
+      <CommitDialog open={commitOpen} onClose={() => setCommitOpen(false)} />
+      <LogModal open={logOpen} onClose={() => setLogOpen(false)} />
     </div>
   );
 }
