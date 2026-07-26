@@ -95,6 +95,15 @@ export function revealInFinder(path: string): Promise<void> {
   return call<void>("reveal_in_finder", { path });
 }
 
+/**
+ * 把用户输入解析成可浏览的仓库 URL。
+ * 若输入是本地工作副本路径（裸路径或 file://），返回其真实仓库 URL；
+ * 否则返回 null（输入本身就是 URL，按原样用）。
+ */
+export function resolveRepoUrl(input: string): Promise<string | null> {
+  return call<string | null>("resolve_repo_url", { input });
+}
+
 /** 浏览远端仓库目录（免 checkout） */
 export function listRepo(url: string, auth: AuthInput = {}): Promise<RepoEntry[]> {
   return call<RepoEntry[]>("list_repo", { url, authInput: auth });

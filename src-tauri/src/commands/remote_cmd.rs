@@ -57,6 +57,38 @@ fn maybe_remember(url: &str, input: &AuthInput) {
     }
 }
 
+/// 把用户输入解析成可浏览的仓库 URL。
+///
+/// 用户常把本地工作副本路径当仓库地址填（如 `/path/to/wc` 或 `file:///path/to/wc`），
+/// 而工作副本不是仓库、无法用 file:// 浏览。这里检测这种情况，
+/// 自动读出其真实仓库 URL（svn info 的 URL 字段）返回给前端引导切换。
+///
+/// 返回：`Some(真实URL)` 表示输入是工作副本、已解析；`None` 表示输入本身就是 URL，按原样用。
+#[tauri::command]
+pub async fn resolve_repo_url(input: String) -> Result<Option<String>, SvnError> {
+    let trimmed = input.trim();
+
+    // 取出本地路径候选：裸路径，或 file:// 指向的本地目录
+    let local_path: Option<String> = if trimmed.starts_with('/') {
+        Some(trimmed.to_string())
+    } else if let Some(rest) = trimmed.strip_prefix("file://") {
+        // file:///abs → /abs（去掉可能的 localhost 主机段）
+        let p = rest.strip_prefix("localhost").unwrap_or(rest);
+        Some(p.to_string())
+    } else {
+        None
+    };
+
+    if let Some(path) = local_path {
+        // 该本地路径是工作副本吗？是则读它的真实仓库 URL
+        if std::path::Path::new(&path).join(".svn").is_dir() {
+            let info = svn::info(&path).await?;
+            return Ok(Some(info.url));
+        }
+    }
+    Ok(None)
+}
+
 /// 浏览远端仓库目录。
 #[tauri::command]
 pub async fn list_repo(url: String, auth_input: AuthInput) -> Result<Vec<RepoEntry>, SvnError> {

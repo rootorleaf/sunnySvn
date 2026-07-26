@@ -13,6 +13,7 @@ import {
   Space,
   Table,
   Typography,
+  message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { FolderOutlined, FileOutlined, ReloadOutlined } from "@ant-design/icons";
@@ -71,9 +72,22 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
     }
   }
 
-  function enterRoot() {
+  async function enterRoot() {
     setSegments([]);
-    void browse(rootUrl.replace(/\/+$/, ""));
+    let target = rootUrl.trim().replace(/\/+$/, "");
+    // 用户可能填了本地工作副本路径：自动解析成其真实仓库 URL
+    try {
+      const resolved = await svnApi.resolveRepoUrl(target);
+      if (resolved) {
+        target = resolved.replace(/\/+$/, "");
+        setRootUrl(target);
+        message.info("已识别为工作副本，自动切换到其仓库地址");
+      }
+    } catch (e) {
+      setError(e as SvnError);
+      return;
+    }
+    void browse(target);
   }
 
   function enterDir(name: string) {
@@ -138,17 +152,17 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
       <Space direction="vertical" style={{ width: "100%" }} size={12}>
         <Space.Compact style={{ width: "100%" }}>
           <Input
-            placeholder="https://svn.example.com/repo"
+            placeholder="仓库 URL，或本地工作副本路径（自动解析）"
             value={rootUrl}
             onChange={(e) => setRootUrl(e.target.value)}
-            onPressEnter={enterRoot}
+            onPressEnter={() => void enterRoot()}
           />
           <Button
             type="primary"
             icon={<ReloadOutlined />}
             loading={loading}
-            disabled={!rootUrl.includes("://")}
-            onClick={enterRoot}
+            disabled={!rootUrl.trim()}
+            onClick={() => void enterRoot()}
           >
             浏览
           </Button>

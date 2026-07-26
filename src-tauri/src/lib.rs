@@ -34,6 +34,7 @@ pub fn run() {
             config_cmd::remove_working_copy,
             config_cmd::list_recent_messages,
             system_cmd::reveal_in_finder,
+            remote_cmd::resolve_repo_url,
             remote_cmd::list_repo,
             remote_cmd::start_checkout,
             remote_cmd::cancel_task,
