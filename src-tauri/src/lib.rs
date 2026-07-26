@@ -4,7 +4,7 @@ mod commands;
 mod events;
 mod svn;
 
-use commands::{config_cmd, svn_cmd};
+use commands::{config_cmd, svn_cmd, system_cmd};
 
 /// 构建并运行 Tauri 应用。
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -32,6 +32,7 @@ pub fn run() {
             config_cmd::add_working_copy,
             config_cmd::remove_working_copy,
             config_cmd::list_recent_messages,
+            system_cmd::reveal_in_finder,
         ])
         .run(tauri::generate_context!())
         .expect("运行 Tauri 应用时发生错误");

@@ -81,3 +81,8 @@ export function getFileDiff(path: string, file: string): Promise<FileDiff> {
 export function getLog(path: string, limit: number, beforeRev?: number): Promise<LogEntry[]> {
   return call<LogEntry[]>("get_log", { path, limit, beforeRev: beforeRev ?? null });
 }
+
+/** 在 Finder 中显示指定路径（打开所在目录并选中） */
+export function revealInFinder(path: string): Promise<void> {
+  return call<void>("reveal_in_finder", { path });
+}

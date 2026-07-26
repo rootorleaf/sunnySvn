@@ -1,14 +1,23 @@
 import { useState } from "react";
-import { Button, List, Typography, Popconfirm, message } from "antd";
-import { PlusOutlined, DeleteOutlined, FolderOutlined } from "@ant-design/icons";
+import { Button, Dropdown, List, Modal, Typography, Popconfirm, message } from "antd";
+import {
+  PlusOutlined,
+  DeleteOutlined,
+  FolderOutlined,
+  FolderOpenOutlined,
+} from "@ant-design/icons";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAppStore } from "../stores/appStore";
+import * as svnApi from "../api/svn";
+import { showSvnError } from "../utils/errorDialog";
 import type { SvnError } from "../api/svn";
+import type { WorkingCopy } from "../types";
 
 const { Text } = Typography;
 
 // 侧栏：工作副本列表 + 添加/移除。添加时用系统目录选择器，
 // 后端会校验所选目录是否为有效 svn 工作副本。
+// 每项支持右键菜单：在 Finder 中显示 / 从列表移除。
 export function Sidebar() {
   const workingCopies = useAppStore((s) => s.workingCopies);
   const selectedId = useAppStore((s) => s.selectedId);
@@ -32,6 +41,20 @@ export function Sidebar() {
       );
     } finally {
       setAdding(false);
+    }
+  }
+
+  function handleMenuClick(key: string, wc: WorkingCopy) {
+    if (key === "reveal") {
+      svnApi.revealInFinder(wc.path).catch((e) => showSvnError(e, "无法在 Finder 中显示"));
+    } else if (key === "remove") {
+      Modal.confirm({
+        title: "从列表移除？",
+        content: "仅从应用移除,不会删除本地文件。",
+        okText: "移除",
+        cancelText: "取消",
+        onOk: () => void removeWorkingCopy(wc.id),
+      });
     }
   }
 
@@ -61,43 +84,56 @@ export function Sidebar() {
         dataSource={workingCopies}
         locale={{ emptyText: "尚未添加工作副本" }}
         renderItem={(wc) => (
-          <List.Item
-            style={{
-              padding: "8px 16px",
-              cursor: "pointer",
-              background: wc.id === selectedId ? "var(--selected-bg)" : undefined,
+          <Dropdown
+            key={wc.id}
+            trigger={["contextMenu"]}
+            menu={{
+              items: [
+                { key: "reveal", label: "在 Finder 中显示", icon: <FolderOpenOutlined /> },
+                { type: "divider" },
+                { key: "remove", label: "从列表移除", icon: <DeleteOutlined />, danger: true },
+              ],
+              onClick: ({ key }) => handleMenuClick(key, wc),
             }}
-            onClick={() => selectWorkingCopy(wc.id)}
-            actions={[
-              <Popconfirm
-                key="del"
-                title="从列表移除？"
-                description="仅从应用移除，不会删除本地文件。"
-                onConfirm={(e) => {
-                  e?.stopPropagation();
-                  void removeWorkingCopy(wc.id);
-                }}
-                onCancel={(e) => e?.stopPropagation()}
-              >
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<DeleteOutlined />}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </Popconfirm>,
-            ]}
           >
-            <List.Item.Meta
-              avatar={<FolderOutlined style={{ fontSize: 16, color: "var(--icon)" }} />}
-              title={<Text ellipsis>{wc.name}</Text>}
-              description={
-                <Text type="secondary" ellipsis style={{ fontSize: 12 }}>
-                  {wc.path}
-                </Text>
-              }
-            />
-          </List.Item>
+            <List.Item
+              style={{
+                padding: "8px 16px",
+                cursor: "pointer",
+                background: wc.id === selectedId ? "var(--selected-bg)" : undefined,
+              }}
+              onClick={() => selectWorkingCopy(wc.id)}
+              actions={[
+                <Popconfirm
+                  key="del"
+                  title="从列表移除？"
+                  description="仅从应用移除，不会删除本地文件。"
+                  onConfirm={(e) => {
+                    e?.stopPropagation();
+                    void removeWorkingCopy(wc.id);
+                  }}
+                  onCancel={(e) => e?.stopPropagation()}
+                >
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Popconfirm>,
+              ]}
+            >
+              <List.Item.Meta
+                avatar={<FolderOutlined style={{ fontSize: 16, color: "var(--icon)" }} />}
+                title={<Text ellipsis>{wc.name}</Text>}
+                description={
+                  <Text type="secondary" ellipsis style={{ fontSize: 12 }}>
+                    {wc.path}
+                  </Text>
+                }
+              />
+            </List.Item>
+          </Dropdown>
         )}
       />
     </div>

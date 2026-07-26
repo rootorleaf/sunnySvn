@@ -9,6 +9,7 @@ import {
   PlusOutlined,
   RollbackOutlined,
   DeleteOutlined,
+  FolderOpenOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
@@ -133,6 +134,10 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
     if (REVERTABLE.has(entry.itemStatus)) {
       items.push({ key: "revert", label: "还原改动", icon: <RollbackOutlined /> });
     }
+    // 已删除/丢失的文件磁盘上不存在，无法在 Finder 中显示
+    if (entry.itemStatus !== "deleted" && entry.itemStatus !== "missing") {
+      items.push({ key: "reveal", label: "在 Finder 中显示", icon: <FolderOpenOutlined /> });
+    }
     items.push({ type: "divider" });
     items.push({ key: "delete", label: "删除", icon: <DeleteOutlined />, danger: true });
     return items;
@@ -143,6 +148,8 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
     try {
       if (key === "diff") {
         selectFile(entry);
+      } else if (key === "reveal") {
+        await svnApi.revealInFinder(`${wcPath}/${entry.path}`);
       } else if (key === "add") {
         await svnApi.addFiles(wcPath, [entry.path]);
         message.success(`已加入版本控制：${entry.path}`);
