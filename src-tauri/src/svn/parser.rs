@@ -429,10 +429,16 @@ pub fn parse_log(xml: &str) -> Result<Vec<LogEntry>, SvnError> {
 }
 
 /// 从事件里读取指定属性值，找不到返回 None。
+/// 必须做 XML 反转义：路径含 `&`/`<`/`"` 等字符时 svn 输出为 `&amp;` 等实体，
+/// 不反转义会拼出不存在的路径（用户实测踩坑：`接口文档&demo` → `&amp;`）。
 fn attr(e: &quick_xml::events::BytesStart, key: &[u8]) -> Option<String> {
     e.attributes().flatten().find_map(|a| {
         if a.key.as_ref() == key {
-            Some(String::from_utf8_lossy(&a.value).into_owned())
+            Some(match a.unescape_value() {
+                Ok(v) => v.into_owned(),
+                // 反转义失败（不合法实体等罕见情况）退回原始字节
+                Err(_) => String::from_utf8_lossy(&a.value).into_owned(),
+            })
         } else {
             None
         }
@@ -517,6 +523,21 @@ mod tests {
         assert_eq!(entries[0].changed_paths[1].action, "A");
         assert_eq!(entries[1].revision, 1);
         assert_eq!(entries[1].changed_paths[0].kind, "dir");
+    }
+
+    #[test]
+    fn unescapes_entity_in_path_attr() {
+        // 目录名含 & 时 svn 输出 &amp;，解析后必须还原为 &
+        let xml = r#"<?xml version="1.0"?>
+<status>
+  <target path=".">
+    <entry path="04-提测资料/03 接口文档&amp;demo/说明.md">
+      <wc-status item="added" props="none" revision="-1"/>
+    </entry>
+  </target>
+</status>"#;
+        let entries = parse_status(xml).unwrap();
+        assert_eq!(entries[0].path, "04-提测资料/03 接口文档&demo/说明.md");
     }
 
     #[test]

@@ -8,6 +8,9 @@
 
 ## [Unreleased]
 
+### 2026-07-26 — 路径实体转义修复
+- **修复**:XML 属性未做反转义,路径含 `&` 等字符时解析成 `&amp;` 字面量,「在 Finder 中显示」等按路径操作报「路径不存在」(用户实测:`接口文档&demo` 目录)。`attr()` 改用 `unescape_value()`,status/info/log/list 所有属性解析同步受益;新增含 `&` 与中文的回归单测,并对真实 svn 输出验证转义行为。
+
 ### 2026-07-26 — M2 认证与远端
 - **新增**:凭据管理 `auth.rs`——keyring(apple-native) 按 realm(scheme://host:port) 存取 macOS 钥匙串;密码经 `--password-from-stdin` 从标准输入传给 svn,不进进程参数、不落盘,控制台展示的命令行不含认证信息。
 - **新增**:Checkout 向导——URL/目标目录/认证折叠栏;后端 `start_checkout` 异步任务,`svn-task-progress` 逐行进度、`svn-task-done` 完成事件,`cancel_task` 发 SIGTERM 可取消;完成自动加入工作副本列表。E170001 自动展开认证栏,E230001 显示「信任该证书并重试」(附加 `--trust-server-cert-failures`)。
