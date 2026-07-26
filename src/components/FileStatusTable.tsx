@@ -1,6 +1,6 @@
 // 文件状态表：状态角标 + 行点击联动差异面板 + 右键菜单（添加/还原/删除）。
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dropdown, Empty, Modal, Table, Tag, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { MenuProps } from "antd";
@@ -59,6 +59,30 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
   const wcPath = workingCopies.find((w) => w.id === selectedId)?.path ?? null;
 
   const [ctx, setCtx] = useState<CtxMenu | null>(null);
+  const menuWrapRef = useRef<HTMLDivElement>(null);
+
+  // 受控 Dropdown（trigger=[]）不会自己监听外部点击：
+  // 菜单打开期间，按下鼠标在菜单区域外、或按 Esc，即关闭。
+  useEffect(() => {
+    if (!ctx) return;
+    function onMouseDown(e: MouseEvent) {
+      // 菜单浮层挂在 body 下的 .ant-dropdown 里，锚点在 menuWrapRef
+      const target = e.target as Node;
+      const inAnchor = menuWrapRef.current?.contains(target) ?? false;
+      const inOverlay = (target as HTMLElement).closest?.(".ant-dropdown") != null;
+      if (!inAnchor && !inOverlay) setCtx(null);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setCtx(null);
+    }
+    // 捕获阶段监听，保证先于表格行的 onClick/onContextMenu 处理
+    document.addEventListener("mousedown", onMouseDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [ctx]);
 
   const columns = useMemo<ColumnsType<StatusEntry>>(
     () => [
@@ -197,9 +221,12 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
           },
         })}
       />
-      {/* 右键菜单：固定定位锚点 + 受控 Dropdown */}
+      {/* 右键菜单：固定定位锚点 + 受控 Dropdown（外部点击/Esc 由上方 effect 关闭） */}
       {ctx && (
-        <div style={{ position: "fixed", left: ctx.x, top: ctx.y, zIndex: 1000 }}>
+        <div
+          ref={menuWrapRef}
+          style={{ position: "fixed", left: ctx.x, top: ctx.y, zIndex: 1000 }}
+        >
           <Dropdown
             open
             trigger={[]}
