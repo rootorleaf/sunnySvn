@@ -8,6 +8,9 @@
 
 ## [Unreleased]
 
+### 2026-07-26 — M1 缺陷修复
+- **修复**:执行器把 `--non-interactive` 追加在参数末尾,落到 `--` 分隔符之后被 svn 当成路径,导致 add/revert/delete 报 `W155010 + E200009`(提交对话框勾选未版本化文件时触发,先行的自动 add 即失败)。现改为前置该选项;已对真实 svn 复现原错并验证修复,status/commit/log/update 兼容。
+
 ### 2026-07-24 — M1 日常闭环
 - **新增**:提交能力——`commit_files` IPC(--targets 临时文件传路径,规避参数长度限制)、提交对话框(勾选文件、未版本化自动先 add、提交信息历史复用,历史存 config.json 上限 20 条)。
 - **新增**:文件操作——`add_files` / `delete_files`(版本化走 `svn delete --force`,未版本化直接删磁盘)/ `revert_files`,状态表右键菜单接入,危险操作二次确认;相对路径安全校验(拒绝绝对路径与 `..`)。

@@ -29,9 +29,11 @@ const CONSOLE_OUTPUT_LIMIT: usize = 8000;
 async fn exec(dir: Option<&str>, args: &[&str], verbose: bool) -> Result<SvnOutput, SvnError> {
     let bin = svn_path()?;
 
+    // --non-interactive 必须前置：若追加在末尾，会落到 `--` 分隔符之后
+    // 被 svn 当成路径（如 add/revert/delete -- <files> 的场景），导致 E200009。
     let mut cmd = Command::new(&bin);
-    cmd.args(args)
-        .arg("--non-interactive")
+    cmd.arg("--non-interactive")
+        .args(args)
         .env("LC_ALL", "en_US.UTF-8")
         .env("LANG", "en_US.UTF-8")
         .stdin(Stdio::null())
