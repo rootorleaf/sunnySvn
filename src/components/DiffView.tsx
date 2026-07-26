@@ -86,12 +86,17 @@ export function DiffView() {
     );
   }
   if (error) {
+    const infoCodes: Record<string, string> = {
+      BINARY_FILE: "二进制文件不支持文本对比",
+      IS_DIRECTORY: "目录没有可对比的内容",
+    };
+    const infoTitle = infoCodes[error.code];
     return (
       <Alert
-        type={error.code === "BINARY_FILE" ? "info" : "error"}
+        type={infoTitle ? "info" : "error"}
         showIcon
         style={{ margin: 12 }}
-        message={error.code === "BINARY_FILE" ? "二进制文件不支持文本对比" : "读取差异失败"}
+        message={infoTitle ?? "读取差异失败"}
         description={error.message}
       />
     );

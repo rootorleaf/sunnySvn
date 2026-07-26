@@ -176,11 +176,20 @@ pub struct FileDiff {
 }
 
 /// 读取单个文件的 BASE / 工作区内容。
+/// - 目录没有文本内容，返回 IS_DIRECTORY 让前端给出明确提示；
 /// - 新增/未版本化文件：BASE 为空；
 /// - 已删除/丢失文件：工作区为空；
 /// - 含 NUL 或非 UTF-8 的内容视为二进制，返回 BINARY_FILE。
 pub async fn file_diff(path: &str, file: &str) -> Result<FileDiff, SvnError> {
     ensure_rel_paths(&[file.to_string()])?;
+
+    let full_path = Path::new(path).join(file);
+    if full_path.is_dir() {
+        return Err(SvnError::new(
+            "IS_DIRECTORY",
+            format!("{file} 是目录，没有可对比的文本内容"),
+        ));
+    }
 
     // BASE 内容：不在版本控制或无 BASE 时视为空（cat 失败不算错误）
     let old_text = match runner::query_in(path, &["cat", "-r", "BASE", "--", file]).await {
