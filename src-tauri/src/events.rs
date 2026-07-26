@@ -30,3 +30,24 @@ pub fn emit_console(line: ConsoleLine) {
         let _ = app.emit("svn-console", &line);
     }
 }
+
+/// 长任务（checkout 等）的一行进度输出。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskLine {
+    pub task_id: u64,
+    pub line: String,
+}
+
+/// 推送长任务的一行进度到前端。
+pub fn emit_task_line(task_id: u64, line: &str) {
+    if let Some(app) = APP.get() {
+        let _ = app.emit(
+            "svn-task-progress",
+            &TaskLine {
+                task_id,
+                line: line.to_string(),
+            },
+        );
+    }
+}

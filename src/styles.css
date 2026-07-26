@@ -298,3 +298,20 @@ body,
 .log-path-row {
   padding: 2px 0;
 }
+
+/* Checkout 进度输出 */
+.checkout-progress {
+  height: 180px;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  background: rgba(128, 128, 128, 0.05);
+}
+
+.checkout-progress-line {
+  white-space: pre;
+  line-height: 1.6;
+}

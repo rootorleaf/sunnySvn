@@ -86,3 +86,38 @@ export interface ConsoleLine {
   success: boolean;
   durationMs: number;
 }
+
+/** 仓库浏览器条目（svn list） */
+export interface RepoEntry {
+  /** file / dir */
+  kind: string;
+  name: string;
+  revision: number;
+  author: string;
+  date: string;
+  size: number | null;
+}
+
+/** 认证输入（配合远端命令） */
+export interface AuthInput {
+  username?: string;
+  password?: string;
+  /** 成功后存入钥匙串 */
+  remember?: boolean;
+  /** SSL 证书不受信经确认后重试 */
+  trustCert?: boolean;
+}
+
+/** 长任务进度行（svn-task-progress 事件） */
+export interface TaskLine {
+  taskId: number;
+  line: string;
+}
+
+/** 长任务完成（svn-task-done 事件） */
+export interface TaskDone {
+  taskId: number;
+  revision: number | null;
+  error: { code: string; message: string } | null;
+  dest: string;
+}

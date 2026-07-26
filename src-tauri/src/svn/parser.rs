@@ -230,6 +230,103 @@ pub fn parse_info(xml: &str) -> Result<WorkingCopyInfo, SvnError> {
     })
 }
 
+/// 仓库浏览器的一个条目（svn list）。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoEntry {
+    /// file / dir
+    pub kind: String,
+    pub name: String,
+    /// 该条目最后一次提交的修订号 / 作者 / 日期
+    pub revision: i64,
+    pub author: String,
+    pub date: String,
+    /// 文件大小（目录无此项）
+    pub size: Option<i64>,
+}
+
+/// 解析 `svn list --xml` 的输出。
+///
+/// 结构（对真实 svn 1.14 输出验证）：
+/// ```xml
+/// <lists>
+///   <list path="...">
+///     <entry kind="dir"><name>trunk</name>
+///       <commit revision="2"><author>a</author><date>…</date></commit>
+///     </entry>
+///     <entry kind="file"><name>x.rs</name><size>120</size>…</entry>
+///   </list>
+/// </lists>
+/// ```
+pub fn parse_list(xml: &str) -> Result<Vec<RepoEntry>, SvnError> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(true);
+
+    let mut entries: Vec<RepoEntry> = Vec::new();
+    let mut cur_kind = String::new();
+    let mut cur_name = String::new();
+    let mut cur_rev: i64 = 0;
+    let mut cur_author = String::new();
+    let mut cur_date = String::new();
+    let mut cur_size: Option<i64> = None;
+    let mut stack: Vec<Vec<u8>> = Vec::new();
+
+    let mut buf = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                let name = e.name().as_ref().to_vec();
+                match name.as_slice() {
+                    b"entry" => {
+                        cur_kind = attr(&e, b"kind").unwrap_or_default();
+                        cur_name.clear();
+                        cur_rev = 0;
+                        cur_author.clear();
+                        cur_date.clear();
+                        cur_size = None;
+                    }
+                    b"commit" => {
+                        cur_rev = attr(&e, b"revision")
+                            .and_then(|r| r.parse().ok())
+                            .unwrap_or(0);
+                    }
+                    _ => {}
+                }
+                stack.push(name);
+            }
+            Ok(Event::Text(t)) => {
+                let text = t.unescape().unwrap_or_default().to_string();
+                match stack.last().map(|v| v.as_slice()) {
+                    Some(b"name") => cur_name.push_str(&text),
+                    Some(b"author") => cur_author.push_str(&text),
+                    Some(b"date") => cur_date.push_str(&text),
+                    Some(b"size") => cur_size = text.parse().ok(),
+                    _ => {}
+                }
+            }
+            Ok(Event::End(e)) => {
+                if e.name().as_ref() == b"entry" && !cur_name.is_empty() {
+                    entries.push(RepoEntry {
+                        kind: cur_kind.clone(),
+                        name: cur_name.clone(),
+                        revision: cur_rev,
+                        author: cur_author.clone(),
+                        date: cur_date.clone(),
+                        size: cur_size,
+                    });
+                }
+                stack.pop();
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => return Err(SvnError::internal(format!("解析 list XML 失败: {e}"))),
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(entries)
+}
+
 /// 解析 `svn log --xml -v` 的输出。
 ///
 /// 结构大致为：
@@ -420,6 +517,40 @@ mod tests {
         assert_eq!(entries[0].changed_paths[1].action, "A");
         assert_eq!(entries[1].revision, 1);
         assert_eq!(entries[1].changed_paths[0].kind, "dir");
+    }
+
+    #[test]
+    fn parses_list_entries() {
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<lists>
+<list path="file:///tmp/repo">
+<entry kind="dir">
+<name>trunk</name>
+<commit revision="2">
+<author>itrus</author>
+<date>2026-07-26T08:46:41.058794Z</date>
+</commit>
+</entry>
+<entry kind="file">
+<name>说明.md</name>
+<size>27</size>
+<commit revision="1">
+<author>alice</author>
+<date>2026-07-26T08:46:40.084140Z</date>
+</commit>
+</entry>
+</list>
+</lists>"#;
+        let entries = parse_list(xml).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].kind, "dir");
+        assert_eq!(entries[0].name, "trunk");
+        assert_eq!(entries[0].revision, 2);
+        assert_eq!(entries[0].size, None);
+        assert_eq!(entries[1].kind, "file");
+        assert_eq!(entries[1].name, "说明.md");
+        assert_eq!(entries[1].size, Some(27));
+        assert_eq!(entries[1].author, "alice");
     }
 
     #[test]

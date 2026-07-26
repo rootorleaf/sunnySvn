@@ -12,8 +12,56 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub use errors::SvnError;
 pub use locator::{detect, SvnInfo};
 pub use parser::{
-    parse_info, parse_log, parse_status, LogEntry, StatusEntry, WorkingCopyInfo,
+    parse_info, parse_list, parse_log, parse_status, LogEntry, RepoEntry, StatusEntry,
+    WorkingCopyInfo,
 };
+pub use runner::AuthOptions;
+
+/// 远端 URL 基本校验：仅允许 svn 支持的协议，防注入任意本地路径。
+pub fn ensure_remote_url(url: &str) -> Result<(), SvnError> {
+    const SCHEMES: &[&str] = &["http://", "https://", "svn://", "svn+ssh://", "file://"];
+    if SCHEMES.iter().any(|s| url.starts_with(s)) && !url.contains(['\n', '\r']) {
+        Ok(())
+    } else {
+        Err(SvnError::new("BAD_URL", format!("不是有效的仓库 URL: {url}")))
+    }
+}
+
+/// 浏览远端仓库目录：`svn list --xml <url>`。
+pub async fn list_remote(url: &str, auth: &AuthOptions) -> Result<Vec<RepoEntry>, SvnError> {
+    ensure_remote_url(url)?;
+    let out = runner::query_remote(&["list", "--xml", "--", url], auth).await?;
+    parse_list(&out.stdout)
+}
+
+/// checkout：流式推送进度（task_id 对应 svn-task-progress 事件），可取消。
+/// 返回 checkout 到的修订号。
+pub async fn checkout(
+    url: &str,
+    dest: &str,
+    auth: &AuthOptions,
+    task_id: u64,
+) -> Result<i64, SvnError> {
+    ensure_remote_url(url)?;
+    if !dest.starts_with('/') {
+        return Err(SvnError::new("BAD_PATH", "目标目录必须是绝对路径"));
+    }
+    let out = runner::run_streaming(None, &["checkout", "--", url, dest], auth, task_id).await?;
+    Ok(extract_checked_out_revision(&out.stdout).unwrap_or(0))
+}
+
+/// 从 checkout 输出中抓取 `Checked out revision N.`。
+fn extract_checked_out_revision(stdout: &str) -> Option<i64> {
+    for line in stdout.lines().rev() {
+        let line = line.trim().trim_end_matches('.');
+        if let Some(rest) = line.strip_prefix("Checked out revision ") {
+            if let Ok(n) = rest.trim().parse::<i64>() {
+                return Some(n);
+            }
+        }
+    }
+    None
+}
 
 /// 相对路径安全校验：拒绝绝对路径与包含 `..` 的路径，
 /// 防止 IPC 传入越出工作副本的目标。
@@ -238,6 +286,24 @@ mod tests {
             Some(108)
         );
         assert_eq!(extract_revision("no revision here"), None);
+    }
+
+    #[test]
+    fn extracts_checked_out_revision() {
+        assert_eq!(
+            extract_checked_out_revision("A    /tmp/x/a.txt\nChecked out revision 2."),
+            Some(2)
+        );
+        assert_eq!(extract_checked_out_revision("nothing"), None);
+    }
+
+    #[test]
+    fn validates_remote_urls() {
+        assert!(ensure_remote_url("https://svn.example.com/repo").is_ok());
+        assert!(ensure_remote_url("svn://host/repo").is_ok());
+        assert!(ensure_remote_url("file:///tmp/repo").is_ok());
+        assert!(ensure_remote_url("/local/path").is_err());
+        assert!(ensure_remote_url("ftp://host/x").is_err());
     }
 
     #[test]

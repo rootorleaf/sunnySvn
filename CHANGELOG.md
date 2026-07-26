@@ -8,6 +8,14 @@
 
 ## [Unreleased]
 
+### 2026-07-26 — M2 认证与远端
+- **新增**:凭据管理 `auth.rs`——keyring(apple-native) 按 realm(scheme://host:port) 存取 macOS 钥匙串;密码经 `--password-from-stdin` 从标准输入传给 svn,不进进程参数、不落盘,控制台展示的命令行不含认证信息。
+- **新增**:Checkout 向导——URL/目标目录/认证折叠栏;后端 `start_checkout` 异步任务,`svn-task-progress` 逐行进度、`svn-task-done` 完成事件,`cancel_task` 发 SIGTERM 可取消;完成自动加入工作副本列表。E170001 自动展开认证栏,E230001 显示「信任该证书并重试」(附加 `--trust-server-cert-failures`)。
+- **新增**:仓库浏览器——`list_repo` 解析 `svn list --xml`(对真实 svn 1.14 输出验证),免 checkout 浏览远端;面包屑导航、目录下钻、修订/作者/日期/大小列;同样支持认证与 SSL 信任重试。
+- **新增**:侧栏头部新增「仓库浏览器」「Checkout」入口;凭据查询/删除命令(`get_saved_credential` 只返回用户名)。
+- **变更**:执行器重构——全局选项统一前置,支持认证注入与流式长任务(RUNNING_TASKS 表跟踪 PID 供取消)。
+- **测试**:单元测试 11→15(realm 提取、list 解析含中文/size、checkout 修订号提取、远端 URL 校验);真实 svn 验证 list/checkout 参数顺序与输出结构。
+
 ### 2026-07-26 — 在 Finder 中显示
 - **新增**:`reveal_in_finder` IPC(macOS `open -R`,定位并选中)。侧栏工作副本右键菜单:「在 Finder 中显示 / 从列表移除」;文件状态表右键菜单同步加入该项(已删除/丢失文件除外,磁盘上不存在)。
 

@@ -2,7 +2,15 @@
 // 前端只依赖这一层，不直接散落调用 invoke，便于统一错误处理与替换。
 
 import { invoke } from "@tauri-apps/api/core";
-import type { SvnInfo, StatusEntry, WorkingCopyInfo, FileDiff, LogEntry } from "../types";
+import type {
+  SvnInfo,
+  StatusEntry,
+  WorkingCopyInfo,
+  FileDiff,
+  LogEntry,
+  RepoEntry,
+  AuthInput,
+} from "../types";
 
 /** 后端返回的结构化错误 */
 export interface SvnError {
@@ -85,4 +93,29 @@ export function getLog(path: string, limit: number, beforeRev?: number): Promise
 /** 在 Finder 中显示指定路径（打开所在目录并选中） */
 export function revealInFinder(path: string): Promise<void> {
   return call<void>("reveal_in_finder", { path });
+}
+
+/** 浏览远端仓库目录（免 checkout） */
+export function listRepo(url: string, auth: AuthInput = {}): Promise<RepoEntry[]> {
+  return call<RepoEntry[]>("list_repo", { url, authInput: auth });
+}
+
+/** 开始 checkout，返回任务 id；进度与完成经事件推送 */
+export function startCheckout(url: string, dest: string, auth: AuthInput = {}): Promise<number> {
+  return call<number>("start_checkout", { url, dest, authInput: auth });
+}
+
+/** 取消进行中的长任务 */
+export function cancelTask(taskId: number): Promise<boolean> {
+  return call<boolean>("cancel_task", { taskId });
+}
+
+/** 查询某仓库已保存的凭据用户名（无则 null，不返回密码） */
+export function getSavedCredential(url: string): Promise<string | null> {
+  return call<string | null>("get_saved_credential", { url });
+}
+
+/** 删除某仓库保存的凭据 */
+export function deleteSavedCredential(url: string): Promise<void> {
+  return call<void>("delete_saved_credential", { url });
 }

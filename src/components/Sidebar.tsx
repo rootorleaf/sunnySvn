@@ -1,15 +1,19 @@
 import { useState } from "react";
-import { Button, Dropdown, List, Modal, Typography, Popconfirm, message } from "antd";
+import { Button, Dropdown, List, Modal, Space, Typography, Popconfirm, message } from "antd";
 import {
   PlusOutlined,
   DeleteOutlined,
   FolderOutlined,
   FolderOpenOutlined,
+  CloudDownloadOutlined,
+  GlobalOutlined,
 } from "@ant-design/icons";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
 import { showSvnError } from "../utils/errorDialog";
+import { CheckoutDialog } from "./CheckoutDialog";
+import { RepoBrowser } from "./RepoBrowser";
 import type { SvnError } from "../api/svn";
 import type { WorkingCopy } from "../types";
 
@@ -25,6 +29,8 @@ export function Sidebar() {
   const addWorkingCopy = useAppStore((s) => s.addWorkingCopy);
   const removeWorkingCopy = useAppStore((s) => s.removeWorkingCopy);
   const [adding, setAdding] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [browserOpen, setBrowserOpen] = useState(false);
 
   async function handleAdd() {
     const selected = await open({ directory: true, multiple: false, title: "选择 SVN 工作副本目录" });
@@ -70,14 +76,30 @@ export function Sidebar() {
         }}
       >
         <Text strong>工作副本</Text>
-        <Button
-          size="small"
-          type="text"
-          icon={<PlusOutlined />}
-          loading={adding}
-          onClick={handleAdd}
-          title="添加工作副本"
-        />
+        <Space size={0}>
+          <Button
+            size="small"
+            type="text"
+            icon={<GlobalOutlined />}
+            onClick={() => setBrowserOpen(true)}
+            title="仓库浏览器"
+          />
+          <Button
+            size="small"
+            type="text"
+            icon={<CloudDownloadOutlined />}
+            onClick={() => setCheckoutOpen(true)}
+            title="Checkout 仓库"
+          />
+          <Button
+            size="small"
+            type="text"
+            icon={<PlusOutlined />}
+            loading={adding}
+            onClick={handleAdd}
+            title="添加本地工作副本"
+          />
+        </Space>
       </div>
       <List
         style={{ flex: 1, overflow: "auto" }}
@@ -136,6 +158,8 @@ export function Sidebar() {
           </Dropdown>
         )}
       />
+      <CheckoutDialog open={checkoutOpen} onClose={() => setCheckoutOpen(false)} />
+      <RepoBrowser open={browserOpen} onClose={() => setBrowserOpen(false)} />
     </div>
   );
 }
