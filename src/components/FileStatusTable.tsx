@@ -10,10 +10,14 @@ import {
   RollbackOutlined,
   DeleteOutlined,
   FolderOpenOutlined,
+  StopOutlined,
+  CheckCircleOutlined,
+  FileSearchOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
 import { showSvnError } from "../utils/errorDialog";
+import { BlameModal } from "./BlameModal";
 import type { StatusEntry, StatusKind } from "../types";
 
 // 状态码 → 显示标签（字符 + 颜色 + 含义），参考 SmartSVN / TortoiseSVN 约定。
@@ -60,6 +64,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
   const wcPath = workingCopies.find((w) => w.id === selectedId)?.path ?? null;
 
   const [ctx, setCtx] = useState<CtxMenu | null>(null);
+  const [blameFile, setBlameFile] = useState<string | null>(null);
   const menuWrapRef = useRef<HTMLDivElement>(null);
 
   // 受控 Dropdown（trigger=[]）不会自己监听外部点击：
@@ -128,11 +133,29 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
     const items: MenuProps["items"] = [
       { key: "diff", label: "显示差异", icon: <DiffOutlined /> },
     ];
+    // 冲突文件：优先展示解决入口
+    if (entry.itemStatus === "conflicted") {
+      items.push({
+        key: "resolve",
+        label: "解决冲突",
+        icon: <CheckCircleOutlined />,
+        children: [
+          { key: "resolve:working", label: "保留当前内容（working）" },
+          { key: "resolve:mine-full", label: "采用我的（mine-full）" },
+          { key: "resolve:theirs-full", label: "采用对方的（theirs-full）" },
+        ],
+      });
+    }
     if (entry.itemStatus === "unversioned") {
       items.push({ key: "add", label: "加入版本控制", icon: <PlusOutlined /> });
+      items.push({ key: "ignore", label: "加入忽略列表", icon: <StopOutlined /> });
     }
     if (REVERTABLE.has(entry.itemStatus)) {
       items.push({ key: "revert", label: "还原改动", icon: <RollbackOutlined /> });
+    }
+    // blame 仅对版本化的文件有意义
+    if (entry.versioned && entry.itemStatus !== "deleted" && entry.itemStatus !== "missing") {
+      items.push({ key: "blame", label: "Blame 注释", icon: <FileSearchOutlined /> });
     }
     // 已删除/丢失的文件磁盘上不存在，无法在 Finder 中显示
     if (entry.itemStatus !== "deleted" && entry.itemStatus !== "missing") {
@@ -148,6 +171,17 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
     try {
       if (key === "diff") {
         selectFile(entry);
+      } else if (key.startsWith("resolve:")) {
+        const accept = key.slice("resolve:".length);
+        await svnApi.resolveConflicts(wcPath, [entry.path], accept);
+        message.success(`已解决冲突：${entry.path}`);
+        await refreshStatus();
+      } else if (key === "blame") {
+        setBlameFile(entry.path);
+      } else if (key === "ignore") {
+        await svnApi.addToIgnore(wcPath, entry.path);
+        message.success(`已加入忽略：${entry.path}`);
+        await refreshStatus();
       } else if (key === "reveal") {
         await svnApi.revealInFinder(`${wcPath}/${entry.path}`);
       } else if (key === "add") {
@@ -252,6 +286,14 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
             <span />
           </Dropdown>
         </div>
+      )}
+      {blameFile && wcPath && (
+        <BlameModal
+          open
+          wcPath={wcPath}
+          file={blameFile}
+          onClose={() => setBlameFile(null)}
+        />
       )}
     </>
   );

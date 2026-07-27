@@ -121,3 +121,25 @@ export interface TaskDone {
   error: { code: string; message: string } | null;
   dest: string;
 }
+
+/** blame 单行注释 */
+export interface BlameLine {
+  lineNumber: number;
+  content: string;
+  /** 未提交的本地新增行为 null */
+  revision: number | null;
+  author: string;
+  date: string;
+}
+
+/** 一条 svn 属性 */
+export interface SvnProperty {
+  name: string;
+  value: string;
+}
+
+/** merge 结果 */
+export interface MergeResult {
+  output: string;
+  hasConflicts: boolean;
+}

@@ -276,3 +276,14 @@ pub async fn query_in(dir: &str, args: &[&str]) -> Result<SvnOutput, SvnError> {
 pub async fn query_remote(args: &[&str], auth: &AuthOptions) -> Result<SvnOutput, SvnError> {
     exec_with(None, args, auth, false).await
 }
+
+/// 不指定工作目录、带认证执行「变更类」远端命令（remote copy 建分支/标签），
+/// 成功输出进控制台。
+pub async fn run_remote(args: &[&str], auth: &AuthOptions) -> Result<SvnOutput, SvnError> {
+    exec_with(None, args, auth, true).await
+}
+
+/// 在工作副本目录下、带认证执行「变更类」命令（switch/merge），成功输出进控制台。
+pub async fn run_in_auth(dir: &str, args: &[&str], auth: &AuthOptions) -> Result<SvnOutput, SvnError> {
+    exec_with(Some(dir), args, auth, true).await
+}

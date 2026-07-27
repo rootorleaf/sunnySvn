@@ -1,18 +1,30 @@
 // 主视图：工具栏（更新/提交/日志/刷新）+ 文件状态表 + 下部面板（差异/控制台）+ 状态栏。
 
 import { useMemo, useState } from "react";
-import { Alert, Button, Empty, Space, Spin, Typography, message } from "antd";
+import { Alert, Button, Dropdown, Empty, Space, Spin, Typography, message } from "antd";
+import type { MenuProps } from "antd";
 import {
   CloudDownloadOutlined,
   ReloadOutlined,
   CheckOutlined,
   HistoryOutlined,
+  BranchesOutlined,
+  SwapOutlined,
+  MergeCellsOutlined,
+  ToolOutlined,
+  DownOutlined,
+  ProfileOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../stores/appStore";
 import { FileStatusTable } from "../components/FileStatusTable";
 import { BottomPanel } from "../components/BottomPanel";
 import { CommitDialog } from "../components/CommitDialog";
 import { LogModal } from "../components/LogModal";
+import { BranchDialog } from "../components/BranchDialog";
+import { SwitchDialog } from "../components/SwitchDialog";
+import { MergeDialog } from "../components/MergeDialog";
+import { PropertyDialog } from "../components/PropertyDialog";
+import * as svnApi from "../api/svn";
 import { showSvnError } from "../utils/errorDialog";
 
 const { Text } = Typography;
@@ -32,6 +44,11 @@ export function WorkingCopyView() {
   const [updating, setUpdating] = useState(false);
   const [commitOpen, setCommitOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [branchOpen, setBranchOpen] = useState(false);
+  const [switchOpen, setSwitchOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [propOpen, setPropOpen] = useState(false);
+  const [cleaningUp, setCleaningUp] = useState(false);
 
   const selected = useMemo(
     () => workingCopies.find((w) => w.id === selectedId) ?? null,
@@ -40,6 +57,11 @@ export function WorkingCopyView() {
 
   const changedCount = useMemo(
     () => statusEntries.filter((e) => CHANGED.has(e.itemStatus)).length,
+    [statusEntries],
+  );
+
+  const hasConflicts = useMemo(
+    () => statusEntries.some((e) => e.itemStatus === "conflicted"),
     [statusEntries],
   );
 
@@ -54,6 +76,31 @@ export function WorkingCopyView() {
       setUpdating(false);
     }
   }
+
+  async function handleCleanup() {
+    if (!selected) return;
+    setCleaningUp(true);
+    try {
+      await svnApi.cleanupWc(selected.path);
+      message.success("Cleanup 完成");
+      await refreshStatus();
+    } catch (e) {
+      showSvnError(e, "Cleanup 失败");
+    } finally {
+      setCleaningUp(false);
+    }
+  }
+
+  const moreMenu: MenuProps = {
+    items: [
+      { key: "props", label: "属性编辑", icon: <ProfileOutlined /> },
+      { key: "cleanup", label: "Cleanup", icon: <ToolOutlined /> },
+    ],
+    onClick: ({ key }) => {
+      if (key === "cleanup") void handleCleanup();
+      else if (key === "props") setPropOpen(true);
+    },
+  };
 
   if (!selected) {
     return (
@@ -81,9 +128,23 @@ export function WorkingCopyView() {
           <Button icon={<HistoryOutlined />} onClick={() => setLogOpen(true)}>
             日志
           </Button>
+          <Button icon={<BranchesOutlined />} onClick={() => setBranchOpen(true)}>
+            分支/标签
+          </Button>
+          <Button icon={<SwapOutlined />} onClick={() => setSwitchOpen(true)}>
+            切换
+          </Button>
+          <Button icon={<MergeCellsOutlined />} onClick={() => setMergeOpen(true)}>
+            合并
+          </Button>
           <Button icon={<ReloadOutlined />} onClick={() => void refreshStatus()}>
             刷新
           </Button>
+          <Dropdown menu={moreMenu} disabled={cleaningUp}>
+            <Button icon={<DownOutlined />} loading={cleaningUp}>
+              更多
+            </Button>
+          </Dropdown>
         </Space>
         <Text type="secondary" ellipsis style={{ marginLeft: 8, flex: 1 }}>
           {selected.path}
@@ -112,11 +173,36 @@ export function WorkingCopyView() {
 
       <div className="wc-statusbar">
         <span>{selected.name}</span>
-        <span>{changedCount} 个改动</span>
+        <span>
+          {changedCount} 个改动
+          {hasConflicts && <span style={{ color: "#cf1322", marginLeft: 8 }}>· 存在冲突</span>}
+        </span>
       </div>
 
       <CommitDialog open={commitOpen} onClose={() => setCommitOpen(false)} />
       <LogModal open={logOpen} onClose={() => setLogOpen(false)} />
+      <BranchDialog
+        open={branchOpen}
+        wcPath={selected.path}
+        onClose={() => setBranchOpen(false)}
+      />
+      <SwitchDialog
+        open={switchOpen}
+        wcPath={selected.path}
+        onClose={() => setSwitchOpen(false)}
+        onSwitched={() => void refreshStatus()}
+      />
+      <MergeDialog
+        open={mergeOpen}
+        wcPath={selected.path}
+        onClose={() => setMergeOpen(false)}
+        onMerged={() => void refreshStatus()}
+      />
+      <PropertyDialog
+        open={propOpen}
+        wcPath={selected.path}
+        onClose={() => setPropOpen(false)}
+      />
     </div>
   );
 }

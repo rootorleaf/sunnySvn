@@ -5,7 +5,7 @@ mod commands;
 mod events;
 mod svn;
 
-use commands::{config_cmd, remote_cmd, svn_cmd, system_cmd};
+use commands::{branch_cmd, config_cmd, remote_cmd, svn_cmd, system_cmd};
 
 /// 构建并运行 Tauri 应用。
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -40,6 +40,19 @@ pub fn run() {
             remote_cmd::cancel_task,
             remote_cmd::get_saved_credential,
             remote_cmd::delete_saved_credential,
+            branch_cmd::create_branch,
+            branch_cmd::switch_wc,
+            branch_cmd::merge_into,
+            branch_cmd::resolve_conflicts,
+            branch_cmd::get_blame,
+            branch_cmd::get_proplist,
+            branch_cmd::set_property,
+            branch_cmd::add_to_ignore,
+            branch_cmd::cleanup_wc,
+            branch_cmd::lock_files,
+            branch_cmd::unlock_files,
+            branch_cmd::relocate_wc,
+            branch_cmd::get_rev_diff,
         ])
         .run(tauri::generate_context!())
         .expect("运行 Tauri 应用时发生错误");

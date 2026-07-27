@@ -10,6 +10,9 @@ import type {
   LogEntry,
   RepoEntry,
   AuthInput,
+  BlameLine,
+  SvnProperty,
+  MergeResult,
 } from "../types";
 
 /** 后端返回的结构化错误 */
@@ -127,4 +130,96 @@ export function getSavedCredential(url: string): Promise<string | null> {
 /** 删除某仓库保存的凭据 */
 export function deleteSavedCredential(url: string): Promise<void> {
   return call<void>("delete_saved_credential", { url });
+}
+
+// ---- M3：分支/合并/冲突/blame/属性/远端操作 ----
+
+/** 创建分支或标签（远端 copy），返回新修订号 */
+export function createBranch(
+  src: string,
+  dst: string,
+  message: string,
+  auth: AuthInput = {},
+): Promise<number> {
+  return call<number>("create_branch", { src, dst, message, authInput: auth });
+}
+
+/** 切换工作副本到另一分支/标签 URL，返回切换后的修订号 */
+export function switchWc(path: string, url: string, auth: AuthInput = {}): Promise<number> {
+  return call<number>("switch_wc", { path, url, authInput: auth });
+}
+
+/** 将 sourceUrl 合并进工作副本；revisionRange 可选（如 "100:200"） */
+export function mergeInto(
+  path: string,
+  sourceUrl: string,
+  revisionRange: string | null,
+  auth: AuthInput = {},
+): Promise<MergeResult> {
+  return call<MergeResult>("merge_into", { path, sourceUrl, revisionRange, authInput: auth });
+}
+
+/** 标记冲突已解决（accept: mine-full / theirs-full / working / base 等） */
+export function resolveConflicts(path: string, files: string[], accept: string): Promise<void> {
+  return call<void>("resolve_conflicts", { path, files, accept });
+}
+
+/** 读取文件逐行 blame */
+export function getBlame(path: string, file: string): Promise<BlameLine[]> {
+  return call<BlameLine[]>("get_blame", { path, file });
+}
+
+/** 列出路径上的属性（target 为 "." 表示工作副本根） */
+export function getProplist(path: string, target: string): Promise<SvnProperty[]> {
+  return call<SvnProperty[]>("get_proplist", { path, target });
+}
+
+/** 设置或删除属性（value 为空则删除） */
+export function setProperty(
+  path: string,
+  target: string,
+  name: string,
+  value: string,
+): Promise<void> {
+  return call<void>("set_property", { path, target, name, value });
+}
+
+/** 右键「加入忽略」：把文件加入父目录 svn:ignore */
+export function addToIgnore(path: string, file: string): Promise<void> {
+  return call<void>("add_to_ignore", { path, file });
+}
+
+/** Cleanup 工作副本 */
+export function cleanupWc(path: string): Promise<void> {
+  return call<void>("cleanup_wc", { path });
+}
+
+/** 锁定文件 */
+export function lockFiles(path: string, files: string[], message?: string): Promise<void> {
+  return call<void>("lock_files", { path, files, message: message ?? null });
+}
+
+/** 解锁文件 */
+export function unlockFiles(path: string, files: string[]): Promise<void> {
+  return call<void>("unlock_files", { path, files });
+}
+
+/** 重定位工作副本到新仓库 URL */
+export function relocateWc(
+  path: string,
+  fromUrl: string,
+  toUrl: string,
+  auth: AuthInput = {},
+): Promise<void> {
+  return call<void>("relocate_wc", { path, fromUrl, toUrl, authInput: auth });
+}
+
+/** 任意两个修订之间的 unified diff 文本 */
+export function getRevDiff(
+  path: string,
+  file: string | null,
+  rev1: number,
+  rev2: number,
+): Promise<string> {
+  return call<string>("get_rev_diff", { path, file, rev1, rev2 });
 }

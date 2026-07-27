@@ -245,6 +245,27 @@ pub struct RepoEntry {
     pub size: Option<i64>,
 }
 
+/// blame 单行注释：行号 + 该行最后修改的修订/作者/日期。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlameLine {
+    pub line_number: i64,
+    /// 该行内容（blame 本身不带正文，由上层用 cat 补齐）
+    pub content: String,
+    /// 未提交的本地改动行 revision 为 null
+    pub revision: Option<i64>,
+    pub author: String,
+    pub date: String,
+}
+
+/// 一条 svn 属性（proplist -v）。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SvnProperty {
+    pub name: String,
+    pub value: String,
+}
+
 /// 解析 `svn list --xml` 的输出。
 ///
 /// 结构（对真实 svn 1.14 输出验证）：
@@ -428,6 +449,148 @@ pub fn parse_log(xml: &str) -> Result<Vec<LogEntry>, SvnError> {
     Ok(entries)
 }
 
+/// 解析 `svn blame --xml` 的输出：每行的作者与修订。
+///
+/// 结构大致为：
+/// ```xml
+/// <blame>
+///   <target path="file.txt">
+///     <entry line-number="1">
+///       <commit revision="2">
+///         <author>alice</author>
+///         <date>2026-07-27T07:31:26Z</date>
+///       </commit>
+///     </entry>
+///   </target>
+/// </blame>
+/// ```
+/// 注意：未提交的本地新增行没有 `<commit>` 子节点，revision 记 0、作者留空。
+pub fn parse_blame(xml: &str) -> Result<Vec<BlameLine>, SvnError> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(true);
+
+    let mut lines: Vec<BlameLine> = Vec::new();
+    let mut cur_line: i64 = 0;
+    let mut cur_rev: i64 = 0;
+    let mut cur_author = String::new();
+    let mut cur_date = String::new();
+    let mut stack: Vec<Vec<u8>> = Vec::new();
+
+    let mut buf = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                let name = e.name().as_ref().to_vec();
+                match name.as_slice() {
+                    b"entry" => {
+                        cur_line = attr(&e, b"line-number")
+                            .and_then(|n| n.parse().ok())
+                            .unwrap_or(0);
+                        cur_rev = 0;
+                        cur_author.clear();
+                        cur_date.clear();
+                    }
+                    b"commit" => {
+                        cur_rev = attr(&e, b"revision")
+                            .and_then(|r| r.parse().ok())
+                            .unwrap_or(0);
+                    }
+                    _ => {}
+                }
+                stack.push(name);
+            }
+            Ok(Event::Text(t)) => {
+                let text = t.unescape().unwrap_or_default().to_string();
+                match stack.last().map(|v| v.as_slice()) {
+                    Some(b"author") => cur_author.push_str(&text),
+                    Some(b"date") => cur_date.push_str(&text),
+                    _ => {}
+                }
+            }
+            Ok(Event::End(e)) => {
+                if e.name().as_ref() == b"entry" {
+                    lines.push(BlameLine {
+                        line_number: cur_line,
+                        content: String::new(), // 由上层用 cat 补齐正文
+                        revision: if cur_rev > 0 { Some(cur_rev) } else { None },
+                        author: cur_author.clone(),
+                        date: cur_date.clone(),
+                    });
+                }
+                stack.pop();
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => return Err(SvnError::internal(format!("解析 blame XML 失败: {e}"))),
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(lines)
+}
+
+/// 解析 `svn proplist -v --xml` 的输出：属性名 → 属性值。
+///
+/// 结构大致为：
+/// ```xml
+/// <properties>
+///   <target path="file.txt">
+///     <property name="svn:keywords">Id</property>
+///   </target>
+/// </properties>
+/// ```
+pub fn parse_proplist(xml: &str) -> Result<Vec<SvnProperty>, SvnError> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(true);
+
+    let mut props: Vec<SvnProperty> = Vec::new();
+    let mut cur_name = String::new();
+    let mut cur_value = String::new();
+    let mut in_property = false;
+
+    let mut buf = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                if e.name().as_ref() == b"property" {
+                    cur_name = attr(&e, b"name").unwrap_or_default();
+                    cur_value.clear();
+                    in_property = true;
+                }
+            }
+            Ok(Event::Empty(e)) => {
+                // 空值属性写成自闭合 <property name="x"/>
+                if e.name().as_ref() == b"property" {
+                    props.push(SvnProperty {
+                        name: attr(&e, b"name").unwrap_or_default(),
+                        value: String::new(),
+                    });
+                }
+            }
+            Ok(Event::Text(t)) => {
+                if in_property {
+                    cur_value.push_str(&t.unescape().unwrap_or_default());
+                }
+            }
+            Ok(Event::End(e)) => {
+                if e.name().as_ref() == b"property" {
+                    props.push(SvnProperty {
+                        name: cur_name.clone(),
+                        value: cur_value.clone(),
+                    });
+                    in_property = false;
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => return Err(SvnError::internal(format!("解析 proplist XML 失败: {e}"))),
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(props)
+}
+
 /// 从事件里读取指定属性值，找不到返回 None。
 /// 必须做 XML 反转义：路径含 `&`/`<`/`"` 等字符时 svn 输出为 `&amp;` 等实体，
 /// 不反转义会拼出不存在的路径（用户实测踩坑：`接口文档&demo` → `&amp;`）。
@@ -588,5 +751,49 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].message, "");
         assert!(entries[0].changed_paths.is_empty());
+    }
+
+    #[test]
+    fn parses_blame_entries() {
+        // 真实 svn blame --xml 结构：第 3 行为未提交的本地新增，无 <commit>
+        let xml = r#"<?xml version="1.0"?>
+<blame>
+<target path="file.txt">
+<entry line-number="1">
+<commit revision="2"><author>alice</author><date>2026-07-27T07:31:26.080390Z</date></commit>
+</entry>
+<entry line-number="2">
+<commit revision="2"><author>alice</author><date>2026-07-27T07:31:26.080390Z</date></commit>
+</entry>
+<entry line-number="3">
+</entry>
+</target>
+</blame>"#;
+        let lines = parse_blame(xml).unwrap();
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0].line_number, 1);
+        assert_eq!(lines[0].revision, Some(2));
+        assert_eq!(lines[0].author, "alice");
+        // 未提交行：无 commit → revision 为 None、作者留空
+        assert_eq!(lines[2].line_number, 3);
+        assert_eq!(lines[2].revision, None);
+        assert_eq!(lines[2].author, "");
+    }
+
+    #[test]
+    fn parses_proplist_entries() {
+        let xml = r#"<?xml version="1.0"?>
+<properties>
+<target path=".">
+<property name="svn:ignore">*.log
+build/</property>
+<property name="svn:externals">^/vendor vendor</property>
+</target>
+</properties>"#;
+        let props = parse_proplist(xml).unwrap();
+        assert_eq!(props.len(), 2);
+        assert_eq!(props[0].name, "svn:ignore");
+        assert_eq!(props[0].value, "*.log\nbuild/");
+        assert_eq!(props[1].name, "svn:externals");
     }
 }

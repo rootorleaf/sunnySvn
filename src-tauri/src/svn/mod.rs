@@ -12,8 +12,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub use errors::SvnError;
 pub use locator::{detect, SvnInfo};
 pub use parser::{
-    parse_info, parse_list, parse_log, parse_status, LogEntry, RepoEntry, StatusEntry,
-    WorkingCopyInfo,
+    parse_blame, parse_info, parse_list, parse_log, parse_proplist, parse_status, BlameLine,
+    LogEntry, RepoEntry, StatusEntry, SvnProperty, WorkingCopyInfo,
 };
 pub use runner::AuthOptions;
 
@@ -237,6 +237,312 @@ pub async fn log(path: &str, limit: u32, before_rev: Option<i64>) -> Result<Vec<
     )
     .await?;
     parse_log(&out.stdout)
+}
+
+// ========== M3: 分支 / 合并 / 冲突 / blame / 属性 / 其它 ==========
+
+/// 远端 copy：创建分支或标签。`src`/`dst` 均为仓库 URL。
+pub async fn remote_copy(
+    src: &str,
+    dst: &str,
+    message: &str,
+    auth: &AuthOptions,
+) -> Result<i64, SvnError> {
+    ensure_remote_url(src)?;
+    ensure_remote_url(dst)?;
+    if message.trim().is_empty() {
+        return Err(SvnError::new("EMPTY_MESSAGE", "提交信息不能为空"));
+    }
+    let out = runner::run_remote(
+        &["copy", "-m", message, "--", src, dst],
+        auth,
+    )
+    .await?;
+    Ok(extract_committed_revision(&out.stdout).unwrap_or(0))
+}
+
+/// 切换工作副本到另一 URL（分支/标签）。
+pub async fn switch(
+    path: &str,
+    url: &str,
+    auth: &AuthOptions,
+) -> Result<i64, SvnError> {
+    ensure_remote_url(url)?;
+    let out = runner::run_in_auth(
+        path,
+        &["switch", "--accept", "postpone", "--", url],
+        auth,
+    )
+    .await?;
+    Ok(extract_revision(&out.stdout).unwrap_or(0))
+}
+
+/// 合并结果：原始输出文本（含 U/G/C 状态行）。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeResult {
+    pub output: String,
+    /// 是否出现冲突标记（C 开头状态行）
+    pub has_conflicts: bool,
+}
+
+/// 将 source_url 合并进工作副本。`revision_range` 可选，如 `100:200` 或 `100`。
+pub async fn merge(
+    path: &str,
+    source_url: &str,
+    revision_range: Option<&str>,
+    auth: &AuthOptions,
+) -> Result<MergeResult, SvnError> {
+    ensure_remote_url(source_url)?;
+    // owned Vec 再借成 &[&str]，支持可选 -r 与生命周期
+    let owned: Vec<String> = {
+        let mut v = vec!["merge".into(), "--accept".into(), "postpone".into()];
+        if let Some(r) = revision_range {
+            if !r.is_empty() {
+                v.push("-r".into());
+                v.push(r.into());
+            }
+        }
+        v.push("--".into());
+        v.push(source_url.into());
+        v.push(".".into());
+        v
+    };
+    let arg_refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
+    let out = runner::run_in_auth(path, &arg_refs, auth).await?;
+    let has_conflicts = out.stdout.lines().any(|l| {
+        let t = l.trim_start();
+        t.starts_with('C') || t.starts_with("Conflict")
+    });
+    Ok(MergeResult {
+        output: out.stdout,
+        has_conflicts,
+    })
+}
+
+/// 标记冲突已解决。`accept` 为 mine-full / theirs-full / working / base。
+pub async fn resolve(
+    path: &str,
+    files: &[String],
+    accept: &str,
+) -> Result<(), SvnError> {
+    ensure_rel_paths(files)?;
+    if files.is_empty() {
+        return Err(SvnError::new("EMPTY", "未选择冲突文件"));
+    }
+    let allowed = ["mine-full", "theirs-full", "working", "base", "mine-conflict", "theirs-conflict"];
+    if !allowed.contains(&accept) {
+        return Err(SvnError::new("BAD_ACCEPT", format!("不支持的 resolve 策略: {accept}")));
+    }
+    let mut args = vec!["resolve", "--accept", accept, "--"];
+    args.extend(as_strs(files));
+    runner::run_in(path, &args).await?;
+    Ok(())
+}
+
+/// 读取 blame：先 parse_blame，再用 cat 补齐每行正文。
+pub async fn blame(path: &str, file: &str) -> Result<Vec<BlameLine>, SvnError> {
+    ensure_rel_paths(&[file.to_string()])?;
+    let full = Path::new(path).join(file);
+    if full.is_dir() {
+        return Err(SvnError::new("IS_DIRECTORY", format!("{file} 是目录，无法 blame")));
+    }
+
+    let out = runner::query_in(path, &["blame", "--xml", "--", file]).await?;
+    let mut lines = parse_blame(&out.stdout)?;
+
+    // 补齐正文：优先工作区文件，失败则 cat
+    let content = match std::fs::read_to_string(&full) {
+        Ok(s) => s,
+        Err(_) => match runner::query_in(path, &["cat", "--", file]).await {
+            Ok(o) => o.stdout,
+            Err(_) => String::new(),
+        },
+    };
+    // 保留末尾空行：lines() 会丢弃，用 split 更稳
+    let body: Vec<&str> = if content.is_empty() {
+        Vec::new()
+    } else {
+        content.split('\n').collect()
+    };
+    // 若文件以 \n 结尾，split 会多一个空串
+    let body_lines: Vec<&str> = if body.last() == Some(&"") {
+        body[..body.len().saturating_sub(1)].to_vec()
+    } else {
+        body
+    };
+
+    for (i, bl) in lines.iter_mut().enumerate() {
+        if let Some(text) = body_lines.get(i) {
+            bl.content = (*text).to_string();
+        }
+    }
+    // blame 行数少于正文时补齐（本地新增行可能不在 blame 里，视 svn 版本）
+    if body_lines.len() > lines.len() {
+        for (i, text) in body_lines.iter().enumerate().skip(lines.len()) {
+            lines.push(BlameLine {
+                line_number: (i as i64) + 1,
+                content: (*text).to_string(),
+                revision: None,
+                author: String::new(),
+                date: String::new(),
+            });
+        }
+    }
+    Ok(lines)
+}
+
+/// 列出路径上的属性（-v 含值）。
+pub async fn proplist(path: &str, target: &str) -> Result<Vec<SvnProperty>, SvnError> {
+    // target 可以是 "." 表示工作副本根
+    if target != "." {
+        ensure_rel_paths(&[target.to_string()])?;
+    }
+    let out = runner::query_in(path, &["proplist", "-v", "--xml", "--", target]).await?;
+    parse_proplist(&out.stdout)
+}
+
+/// 设置属性。value 为空时删除属性。
+pub async fn propset(path: &str, target: &str, name: &str, value: &str) -> Result<(), SvnError> {
+    if target != "." {
+        ensure_rel_paths(&[target.to_string()])?;
+    }
+    if name.is_empty() || name.contains(['\n', '\r', '=']) {
+        return Err(SvnError::new("BAD_PROP", format!("非法属性名: {name}")));
+    }
+    if value.is_empty() {
+        runner::run_in(path, &["propdel", name, "--", target]).await?;
+    } else {
+        // 用临时文件传多行值，避免 shell/参数转义问题
+        let tmp = write_prop_file(value)?;
+        let tmp_s = tmp.to_string_lossy().into_owned();
+        let res = runner::run_in(
+            path,
+            &["propset", name, "-F", &tmp_s, "--", target],
+        )
+        .await;
+        let _ = std::fs::remove_file(&tmp);
+        res?;
+    }
+    Ok(())
+}
+
+/// 右键「加入忽略」：在父目录的 svn:ignore 中追加 basename。
+pub async fn add_to_ignore(path: &str, rel_file: &str) -> Result<(), SvnError> {
+    ensure_rel_paths(&[rel_file.to_string()])?;
+    let p = Path::new(rel_file);
+    let parent = p
+        .parent()
+        .map(|x| x.to_string_lossy().into_owned())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| ".".into());
+    let base = p
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .ok_or_else(|| SvnError::new("BAD_PATH", format!("无法取文件名: {rel_file}")))?;
+
+    let props = proplist(path, &parent).await.unwrap_or_default();
+    let mut ignore = props
+        .iter()
+        .find(|p| p.name == "svn:ignore")
+        .map(|p| p.value.clone())
+        .unwrap_or_default();
+
+    // 已存在则跳过
+    let lines: Vec<&str> = ignore.lines().collect();
+    if lines.iter().any(|l| *l == base) {
+        return Ok(());
+    }
+    if !ignore.is_empty() && !ignore.ends_with('\n') {
+        ignore.push('\n');
+    }
+    ignore.push_str(&base);
+    ignore.push('\n');
+    propset(path, &parent, "svn:ignore", &ignore).await
+}
+
+/// Cleanup 工作副本。
+pub async fn cleanup(path: &str) -> Result<(), SvnError> {
+    runner::run_in(path, &["cleanup"]).await?;
+    Ok(())
+}
+
+/// 锁定文件。
+pub async fn lock(path: &str, files: &[String], message: Option<&str>) -> Result<(), SvnError> {
+    ensure_rel_paths(files)?;
+    let mut owned = vec!["lock".to_string()];
+    if let Some(m) = message {
+        if !m.is_empty() {
+            owned.push("-m".into());
+            owned.push(m.into());
+        }
+    }
+    owned.push("--".into());
+    owned.extend(files.iter().cloned());
+    let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
+    runner::run_in(path, &refs).await?;
+    Ok(())
+}
+
+/// 解锁文件。
+pub async fn unlock(path: &str, files: &[String]) -> Result<(), SvnError> {
+    ensure_rel_paths(files)?;
+    let mut args = vec!["unlock", "--"];
+    args.extend(as_strs(files));
+    runner::run_in(path, &args).await?;
+    Ok(())
+}
+
+/// 重定位工作副本到新仓库 URL。
+pub async fn relocate(
+    path: &str,
+    from_url: &str,
+    to_url: &str,
+    auth: &AuthOptions,
+) -> Result<(), SvnError> {
+    ensure_remote_url(from_url)?;
+    ensure_remote_url(to_url)?;
+    runner::run_in_auth(
+        path,
+        &["relocate", "--", from_url, to_url],
+        auth,
+    )
+    .await?;
+    Ok(())
+}
+
+/// 任意两个修订之间的 diff 文本（unified）。
+pub async fn rev_diff(
+    path: &str,
+    file: Option<&str>,
+    rev1: i64,
+    rev2: i64,
+) -> Result<String, SvnError> {
+    let r1 = rev1.to_string();
+    let r2 = rev2.to_string();
+    let mut owned = vec![
+        "diff".into(),
+        "-r".into(),
+        format!("{r1}:{r2}"),
+    ];
+    if let Some(f) = file {
+        ensure_rel_paths(&[f.to_string()])?;
+        owned.push("--".into());
+        owned.push(f.into());
+    }
+    let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
+    let out = runner::query_in(path, &refs).await?;
+    Ok(out.stdout)
+}
+
+fn write_prop_file(value: &str) -> Result<PathBuf, SvnError> {
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let n = SEQ.fetch_add(1, Ordering::Relaxed);
+    let mut p = std::env::temp_dir();
+    p.push(format!("sunnysvn-prop-{}-{n}.txt", std::process::id()));
+    std::fs::write(&p, value)
+        .map_err(|e| SvnError::internal(format!("写入属性临时文件失败: {e}")))?;
+    Ok(p)
 }
 
 /// targets 临时文件：每行一个路径，UTF-8。用计数器 + pid 保证并发唯一。

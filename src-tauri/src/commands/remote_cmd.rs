@@ -23,7 +23,7 @@ pub struct AuthInput {
 }
 
 /// 组装 AuthOptions：显式传入优先，否则回落到钥匙串。
-fn resolve_auth(url: &str, input: &AuthInput) -> AuthOptions {
+pub(crate) fn resolve_auth(url: &str, input: &AuthInput) -> AuthOptions {
     let mut opts = AuthOptions {
         username: input.username.clone(),
         password: input.password.clone(),
@@ -41,7 +41,7 @@ fn resolve_auth(url: &str, input: &AuthInput) -> AuthOptions {
 }
 
 /// 操作成功后按需保存凭据。
-fn maybe_remember(url: &str, input: &AuthInput) {
+pub(crate) fn maybe_remember(url: &str, input: &AuthInput) {
     if input.remember {
         if let (Some(u), Some(p)) = (&input.username, &input.password) {
             if let Ok(realm) = auth::realm_of(url) {

@@ -8,6 +8,16 @@
 
 ## [Unreleased]
 
+### 2026-07-27 — M3 分支合并
+- **新增**:分支/标签——`create_branch`(远端 copy，src URL → dst URL)，`BranchDialog` 按工作副本当前 URL 推断 repoRoot 下 branches/tags 目标；`switch_wc` + `SwitchDialog`(列出 trunk/branches/tags 候选，双击直切)。
+- **新增**:Merge——`merge_into`(可选修订区间，`--accept postpone`)，`MergeDialog` 展示合并输出并识别冲突标记，完成后刷新状态。
+- **新增**:冲突解决——`resolve_conflicts`(working/mine-full/theirs-full 等策略，白名单校验)，文件状态表右键对 conflicted 文件展开解决子菜单；状态栏显示「存在冲突」。
+- **新增**:Blame——`get_blame` 解析 `svn blame --xml` 后用 cat 补齐每行正文(保留末尾空行、本地新增行补齐)，`BlameModal` 逐行显示修订/作者/内容。
+- **新增**:属性编辑——`get_proplist`/`set_property`(propset -F 临时文件传多行值，空值走 propdel)，`PropertyDialog` 编辑任意属性；右键「加入忽略」`add_to_ignore` 追加父目录 svn:ignore。
+- **新增**:其他远端操作——`cleanup_wc`(工具栏「更多」菜单)、`lock_files`/`unlock_files`、`relocate_wc`、`get_rev_diff`(任意两修订 unified diff)。
+- **测试**:blame/proplist XML 解析新增单测(真实 svn 1.14 结构)，Rust 单测 16→18 全过；零警告编译，前端 tsc + vite build 通过。
+- **说明**:分支/合并/switch/relocate 的远端认证需真实 https 仓库端到端验证；本地 file:// 仓库可验证 blame/属性/cleanup/rev-diff。
+
 ### 2026-07-26 — 仓库浏览器自动解析工作副本路径
 - **新增**:仓库浏览器输入本地工作副本路径(裸路径或 `file://`)时,后端 `resolve_repo_url` 检测到 `.svn` 目录后读出其真实仓库 URL 并自动切换,附「已识别为工作副本,自动切换到其仓库地址」提示。此前用户误把工作副本路径当仓库地址填,svn 甩出一串 `%XX` 转义的 E170013/E180001 难以理解。
 - **变更**:「浏览」按钮放开对 `://` 的限制,允许输入本地路径。
