@@ -24,6 +24,8 @@ export function DiffView() {
   const selectedFile = useAppStore((s) => s.selectedFile);
   const selectedId = useAppStore((s) => s.selectedId);
   const workingCopies = useAppStore((s) => s.workingCopies);
+  // 每次 refreshStatus 递增：resolve/revert/合并后据此强制重载 diff
+  const statusVersion = useAppStore((s) => s.statusVersion);
   const wcPath = workingCopies.find((w) => w.id === selectedId)?.path ?? null;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -53,7 +55,7 @@ export function DiffView() {
     return () => {
       stale = true;
     };
-  }, [selectedFile, wcPath]);
+  }, [selectedFile, wcPath, statusVersion]);
 
   // 渲染 / 销毁 MergeView
   useEffect(() => {

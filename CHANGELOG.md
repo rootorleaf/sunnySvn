@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### 2026-07-28 — 差异刷新与侧栏选中效果修复
+- **修复**:解决冲突/还原等操作后差异面板不刷新。DiffView 之前只依赖 `selectedFile`/`wcPath` 变化重载，同一文件原地变化时看不到结果。appStore 新增 `statusVersion` 计数器,每次 `refreshStatus` 递增,DiffView 依赖它确定性重载。
+- **修复**:工作副本侧栏选中项无高亮。多处组件引用了未定义的 CSS 变量(`--selected-bg`/`--border`/`--icon`/`--text-secondary`,实际只定义了 `--border-color`),补齐浅色/深色两套定义;选中项加左侧蓝色强调条(`.wc-item-selected`)。
+
 ### 2026-07-27 — M3 分支合并
 - **新增**:分支/标签——`create_branch`(远端 copy，src URL → dst URL)，`BranchDialog` 按工作副本当前 URL 推断 repoRoot 下 branches/tags 目标；`switch_wc` + `SwitchDialog`(列出 trunk/branches/tags 候选，双击直切)。
 - **新增**:Merge——`merge_into`(可选修订区间，`--accept postpone`)，`MergeDialog` 展示合并输出并识别冲突标记，完成后刷新状态。

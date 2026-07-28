@@ -26,6 +26,9 @@ interface AppState {
   selectedFile: StatusEntry | null;
   selectFile: (entry: StatusEntry | null) => void;
 
+  // 每次 refreshStatus 递增，供 DiffView 等订阅以强制重载当前文件差异
+  statusVersion: number;
+
   // 动作
   detectSvn: () => Promise<void>;
   loadWorkingCopies: () => Promise<void>;
@@ -49,6 +52,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   statusError: null,
 
   selectedFile: null,
+  statusVersion: 0,
 
   selectFile(entry) {
     set({ selectedFile: entry });
@@ -111,7 +115,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       const stillThere = selectedFile
         ? entries.find((e) => e.path === selectedFile.path) ?? null
         : null;
-      set({ statusEntries: entries, statusLoading: false, selectedFile: stillThere });
+      set((s) => ({
+        statusEntries: entries,
+        statusLoading: false,
+        selectedFile: stillThere,
+        statusVersion: s.statusVersion + 1,
+      }));
     } catch (e) {
       set({ statusError: e as SvnError, statusLoading: false });
     }

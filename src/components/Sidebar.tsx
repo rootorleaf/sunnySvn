@@ -119,11 +119,8 @@ export function Sidebar() {
             }}
           >
             <List.Item
-              style={{
-                padding: "8px 16px",
-                cursor: "pointer",
-                background: wc.id === selectedId ? "var(--selected-bg)" : undefined,
-              }}
+              className={`wc-item${wc.id === selectedId ? " wc-item-selected" : ""}`}
+              style={{ padding: "8px 16px", cursor: "pointer" }}
               onClick={() => selectWorkingCopy(wc.id)}
               actions={[
                 <Popconfirm

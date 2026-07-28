@@ -5,9 +5,14 @@
   --toolbar-height: 44px;
   --statusbar-height: 26px;
   --border-color: #e5e5e5;
+  --border: #e5e5e5;
   --bg-app: #ffffff;
   --bg-sidebar: #f6f6f6;
   --bg-toolbar: #fafafa;
+  --selected-bg: rgba(22, 119, 255, 0.12);
+  --selected-border: #1677ff;
+  --icon: #8c8c8c;
+  --text-secondary: #8c8c8c;
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   font-size: 13px;
 }
@@ -104,9 +109,13 @@ body,
 @media (prefers-color-scheme: dark) {
   :root {
     --border-color: #333;
+    --border: #333;
     --bg-app: #1e1e1e;
     --bg-sidebar: #252525;
     --bg-toolbar: #2a2a2a;
+    --selected-bg: rgba(22, 119, 255, 0.22);
+    --icon: #8ab4f8;
+    --text-secondary: #999;
   }
   body {
     background: var(--bg-app);
@@ -138,6 +147,23 @@ body,
 /* 状态表选中行高亮 */
 .row-selected > td {
   background: rgba(22, 119, 255, 0.08) !important;
+}
+
+/* 侧栏工作副本选中项：左侧强调条 + 背景 */
+.wc-item {
+  position: relative;
+  border-left: 3px solid transparent;
+  transition: background 0.12s ease;
+}
+.wc-item:hover {
+  background: rgba(22, 119, 255, 0.05);
+}
+.wc-item-selected {
+  background: var(--selected-bg);
+  border-left-color: var(--selected-border);
+}
+.wc-item-selected:hover {
+  background: var(--selected-bg);
 }
 
 /* ===== M1: 下部面板（差异 / 控制台）===== */
