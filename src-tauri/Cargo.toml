@@ -29,6 +29,8 @@ keyring = { version = "3", features = ["apple-native"] }
 thiserror = "1"
 # 路径哈希生成稳定 id
 sha2 = "0.10"
+# 文件系统监控（工作副本变更自动刷新）
+notify = "6"
 
 [profile.release]
 panic = "abort"

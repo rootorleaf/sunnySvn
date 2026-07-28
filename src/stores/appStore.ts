@@ -98,8 +98,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   selectWorkingCopy(id: string | null) {
     set({ selectedId: id, statusEntries: [], statusError: null, selectedFile: null });
-    if (id) {
+    const wc = get().workingCopies.find((w) => w.id === id);
+    if (id && wc) {
       void get().refreshStatus();
+      // 启动对该工作副本的文件监控（自动替换上一个）
+      void svnApi.watchWorkingCopy(wc.path).catch(() => {});
+    } else {
+      void svnApi.unwatchWorkingCopy().catch(() => {});
     }
   },
 

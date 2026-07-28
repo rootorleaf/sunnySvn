@@ -4,6 +4,7 @@ mod auth;
 mod commands;
 mod events;
 mod svn;
+mod watcher;
 
 use commands::{branch_cmd, config_cmd, remote_cmd, svn_cmd, system_cmd};
 
@@ -34,6 +35,8 @@ pub fn run() {
             config_cmd::remove_working_copy,
             config_cmd::list_recent_messages,
             system_cmd::reveal_in_finder,
+            system_cmd::watch_working_copy,
+            system_cmd::unwatch_working_copy,
             remote_cmd::resolve_repo_url,
             remote_cmd::list_repo,
             remote_cmd::start_checkout,

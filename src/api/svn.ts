@@ -98,6 +98,16 @@ export function revealInFinder(path: string): Promise<void> {
   return call<void>("reveal_in_finder", { path });
 }
 
+/** 开始监控某工作副本目录，本地文件变动经防抖后推送 wc-changed 事件 */
+export function watchWorkingCopy(path: string): Promise<void> {
+  return call<void>("watch_working_copy", { path });
+}
+
+/** 停止当前文件监控 */
+export function unwatchWorkingCopy(): Promise<void> {
+  return call<void>("unwatch_working_copy");
+}
+
 /**
  * 把用户输入解析成可浏览的仓库 URL。
  * 若输入是本地工作副本路径（裸路径或 file://），返回其真实仓库 URL；

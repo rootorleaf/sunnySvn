@@ -8,6 +8,11 @@
 
 ## [Unreleased]
 
+### 2026-07-28 — M4.1 文件监控自动刷新
+- **新增**:工作副本文件监控(`watcher.rs`,notify crate)。切换工作副本时监视其目录(递归),本地文件变动经 500ms 防抖聚合后推送 `wc-changed` 事件,前端自动 `refreshStatus`,无需手动点刷新。
+- **实现**:全局单例 watcher,切换工作副本自动替换上一个监控(`watch_working_copy`/`unwatch_working_copy`);忽略 `.svn` 内部变动与编辑器临时文件(`.tmp`/`.swp`/`.#`),避免 svn 自身操作与连续写入触发频繁刷新。
+- **延后**:远端变更定时提醒(`status -u`)需认证且易产生噪音,暂缓;核心验收「本地文件改动后状态自动更新」已由文件监控满足。
+
 ### 2026-07-28 — 差异刷新与侧栏选中效果修复
 - **修复**:解决冲突/还原等操作后差异面板不刷新。DiffView 之前只依赖 `selectedFile`/`wcPath` 变化重载，同一文件原地变化时看不到结果。appStore 新增 `statusVersion` 计数器,每次 `refreshStatus` 递增,DiffView 依赖它确定性重载。
 - **修复**:工作副本侧栏选中项无高亮。多处组件引用了未定义的 CSS 变量(`--selected-bg`/`--border`/`--icon`/`--text-secondary`,实际只定义了 `--border-color`),补齐浅色/深色两套定义;选中项加左侧蓝色强调条(`.wc-item-selected`)。

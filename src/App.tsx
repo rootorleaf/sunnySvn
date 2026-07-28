@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Layout } from "antd";
+import { listen } from "@tauri-apps/api/event";
 import { useAppStore } from "./stores/appStore";
 import { subscribeConsole } from "./stores/consoleStore";
 import { SvnGuard } from "./components/SvnGuard";
@@ -21,6 +22,16 @@ export default function App() {
   // 订阅后端 svn 命令的控制台输出事件
   useEffect(() => {
     const sub = subscribeConsole();
+    return () => {
+      void sub.then((unlisten) => unlisten());
+    };
+  }, []);
+
+  // 订阅文件监控事件：工作副本内文件变动时自动刷新状态
+  useEffect(() => {
+    const sub = listen<string>("wc-changed", () => {
+      void useAppStore.getState().refreshStatus();
+    });
     return () => {
       void sub.then((unlisten) => unlisten());
     };
