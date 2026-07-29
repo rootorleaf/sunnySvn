@@ -358,3 +358,21 @@ body,
   pointer-events: none;
   font-size: 14px;
 }
+
+/* 侧栏主题切换按钮 */
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--icon, #8c8c8c);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.theme-toggle-btn:hover {
+  background: rgba(22, 119, 255, 0.1);
+  color: var(--selected-border, #1677ff);
+}

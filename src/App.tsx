@@ -3,6 +3,7 @@ import { Layout } from "antd";
 import { listen } from "@tauri-apps/api/event";
 import { useAppStore } from "./stores/appStore";
 import { subscribeConsole } from "./stores/consoleStore";
+import { useTheme } from "./theme/ThemeProvider";
 import { SvnGuard } from "./components/SvnGuard";
 import { Sidebar } from "./components/Sidebar";
 import { WorkingCopyView } from "./views/WorkingCopyView";
@@ -12,6 +13,7 @@ const { Sider, Content } = Layout;
 export default function App() {
   const detectSvn = useAppStore((s) => s.detectSvn);
   const loadWorkingCopies = useAppStore((s) => s.loadWorkingCopies);
+  const { isDark } = useTheme();
 
   // 启动时探测 svn 并加载已保存的工作副本
   useEffect(() => {
@@ -40,7 +42,11 @@ export default function App() {
   return (
     <SvnGuard>
       <Layout style={{ height: "100vh" }}>
-        <Sider width={240} theme="light" style={{ borderRight: "1px solid var(--border)" }}>
+        <Sider
+          width={240}
+          theme={isDark ? "dark" : "light"}
+          style={{ borderRight: "1px solid var(--border)" }}
+        >
           <Sidebar />
         </Sider>
         <Content style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>

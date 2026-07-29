@@ -15,6 +15,7 @@ import * as svnApi from "../api/svn";
 import { showSvnError } from "../utils/errorDialog";
 import { CheckoutDialog } from "./CheckoutDialog";
 import { RepoBrowser } from "./RepoBrowser";
+import { ThemeToggle } from "./ThemeToggle";
 import type { SvnError } from "../api/svn";
 import type { WorkingCopy } from "../types";
 
@@ -154,6 +155,7 @@ export function Sidebar() {
             onClick={handleAdd}
             title="添加本地工作副本"
           />
+          <ThemeToggle />
         </Space>
       </div>
       <List

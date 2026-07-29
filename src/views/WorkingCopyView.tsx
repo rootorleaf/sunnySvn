@@ -1,6 +1,6 @@
 // 主视图：工具栏（更新/提交/日志/刷新）+ 文件状态表 + 下部面板（差异/控制台）+ 状态栏。
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, Button, Dropdown, Empty, Space, Spin, Typography, message } from "antd";
 import type { MenuProps } from "antd";
 import {
@@ -26,6 +26,7 @@ import { MergeDialog } from "../components/MergeDialog";
 import { PropertyDialog } from "../components/PropertyDialog";
 import * as svnApi from "../api/svn";
 import { showSvnError } from "../utils/errorDialog";
+import { useHotkeys } from "../hooks/useHotkeys";
 
 const { Text } = Typography;
 
@@ -65,7 +66,7 @@ export function WorkingCopyView() {
     [statusEntries],
   );
 
-  async function handleUpdate() {
+  const handleUpdate = useCallback(async () => {
     setUpdating(true);
     try {
       const rev = await updateSelected();
@@ -75,7 +76,42 @@ export function WorkingCopyView() {
     } finally {
       setUpdating(false);
     }
-  }
+  }, [updateSelected]);
+
+  // 全局快捷键：⌘R 刷新 / ⌘U 更新 / ⌘↩ 提交 / ⌘L 日志 / ⌘B 分支 / ⌘P 属性 / Esc 关闭对话框
+  const hotkeys = useMemo(
+    () => ({
+      onRefresh: () => void refreshStatus(),
+      onUpdate: () => void handleUpdate(),
+      onCommit: () => {
+        if (changedCount > 0) setCommitOpen(true);
+        else message.info("没有可提交的改动");
+      },
+      onLog: () => setLogOpen(true),
+      onBranch: () => setBranchOpen(true),
+      onProperty: () => setPropOpen(true),
+      onEscape: () => {
+        if (commitOpen) setCommitOpen(false);
+        else if (logOpen) setLogOpen(false);
+        else if (branchOpen) setBranchOpen(false);
+        else if (switchOpen) setSwitchOpen(false);
+        else if (mergeOpen) setMergeOpen(false);
+        else if (propOpen) setPropOpen(false);
+      },
+    }),
+    [
+      refreshStatus,
+      handleUpdate,
+      changedCount,
+      commitOpen,
+      logOpen,
+      branchOpen,
+      switchOpen,
+      mergeOpen,
+      propOpen,
+    ],
+  );
+  useHotkeys(hotkeys, !!selected);
 
   async function handleCleanup() {
     if (!selected) return;
@@ -114,7 +150,7 @@ export function WorkingCopyView() {
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div className="wc-toolbar">
         <Space>
-          <Button icon={<CloudDownloadOutlined />} onClick={handleUpdate} loading={updating}>
+          <Button icon={<CloudDownloadOutlined />} onClick={() => void handleUpdate()} loading={updating} title="更新 ⌘U">
             更新
           </Button>
           <Button
@@ -122,13 +158,14 @@ export function WorkingCopyView() {
             icon={<CheckOutlined />}
             disabled={changedCount === 0}
             onClick={() => setCommitOpen(true)}
+            title="提交 ⌘↩"
           >
             提交
           </Button>
-          <Button icon={<HistoryOutlined />} onClick={() => setLogOpen(true)}>
+          <Button icon={<HistoryOutlined />} onClick={() => setLogOpen(true)} title="日志 ⌘L">
             日志
           </Button>
-          <Button icon={<BranchesOutlined />} onClick={() => setBranchOpen(true)}>
+          <Button icon={<BranchesOutlined />} onClick={() => setBranchOpen(true)} title="分支/标签 ⌘B">
             分支/标签
           </Button>
           <Button icon={<SwapOutlined />} onClick={() => setSwitchOpen(true)}>
@@ -137,7 +174,7 @@ export function WorkingCopyView() {
           <Button icon={<MergeCellsOutlined />} onClick={() => setMergeOpen(true)}>
             合并
           </Button>
-          <Button icon={<ReloadOutlined />} onClick={() => void refreshStatus()}>
+          <Button icon={<ReloadOutlined />} onClick={() => void refreshStatus()} title="刷新 ⌘R">
             刷新
           </Button>
           <Dropdown menu={moreMenu} disabled={cleaningUp}>
