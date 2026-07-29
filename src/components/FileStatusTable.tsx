@@ -1,4 +1,5 @@
 // 文件状态表：状态角标 + 行点击联动差异面板 + 右键菜单（添加/还原/删除）。
+// 大工作副本下用 antd 虚拟滚动，只渲染可视行，避免 DOM 爆炸。
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dropdown, Empty, Modal, Table, Tag, message } from "antd";
@@ -67,6 +68,27 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
   const [blameFile, setBlameFile] = useState<string | null>(null);
   const menuWrapRef = useRef<HTMLDivElement>(null);
 
+  // 虚拟滚动需要数字高/宽：用 ResizeObserver 测容器实际尺寸，喂给 Table 的 scroll。
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [tableHeight, setTableHeight] = useState(400);
+  const [containerWidth, setContainerWidth] = useState(600);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((obsEntries) => {
+      const rect = obsEntries[0]?.contentRect;
+      if (!rect) return;
+      // 减去表头高度（约 39px），留给表体
+      if (rect.height) setTableHeight(Math.max(0, rect.height - 39));
+      if (rect.width) setContainerWidth(rect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // 路径列宽 = 容器宽 - 状态列64 - 修订列80 - 滚动条约16，最小 160
+  const pathWidth = Math.max(containerWidth - 64 - 80 - 16, 160);
+
   // 受控 Dropdown（trigger=[]）不会自己监听外部点击：
   // 菜单打开期间，按下鼠标在菜单区域外、或按 Esc，即关闭。
   useEffect(() => {
@@ -103,6 +125,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
       {
         title: "路径",
         dataIndex: "path",
+        width: pathWidth,
         ellipsis: true,
         render: (path: string, row) => (
           <span title={path}>
@@ -125,7 +148,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
         render: (rev: number | null) => (rev == null ? "—" : rev),
       },
     ],
-    [],
+    [pathWidth],
   );
 
   /** 右键菜单项按文件状态动态生成 */
@@ -245,23 +268,26 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
 
   return (
     <>
-      <Table<StatusEntry>
-        rowKey="path"
-        size="small"
-        columns={columns}
-        dataSource={entries}
-        pagination={false}
-        scroll={{ y: "100%" }}
-        style={{ height: "100%" }}
-        rowClassName={(row) => (row.path === selectedFile?.path ? "row-selected" : "")}
-        onRow={(record) => ({
-          onClick: () => selectFile(record),
-          onContextMenu: (e) => {
-            e.preventDefault();
-            setCtx({ x: e.clientX, y: e.clientY, entry: record });
-          },
-        })}
-      />
+      {/* 虚拟滚动容器：ResizeObserver 量它的高/宽，喂给 Table 的 scroll */}
+      <div ref={containerRef} style={{ height: "100%", width: "100%", overflow: "hidden" }}>
+        <Table<StatusEntry>
+          rowKey="path"
+          size="small"
+          virtual
+          columns={columns}
+          dataSource={entries}
+          pagination={false}
+          scroll={{ y: tableHeight, x: containerWidth }}
+          rowClassName={(row) => (row.path === selectedFile?.path ? "row-selected" : "")}
+          onRow={(record) => ({
+            onClick: () => selectFile(record),
+            onContextMenu: (e) => {
+              e.preventDefault();
+              setCtx({ x: e.clientX, y: e.clientY, entry: record });
+            },
+          })}
+        />
+      </div>
       {/* 右键菜单：固定定位锚点 + 受控 Dropdown（外部点击/Esc 由上方 effect 关闭） */}
       {ctx && (
         <div

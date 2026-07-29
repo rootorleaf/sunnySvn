@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Dropdown, List, Modal, Space, Typography, Popconfirm, message } from "antd";
 import {
   PlusOutlined,
@@ -9,6 +9,7 @@ import {
   GlobalOutlined,
 } from "@ant-design/icons";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
 import { showSvnError } from "../utils/errorDialog";
@@ -22,6 +23,7 @@ const { Text } = Typography;
 // 侧栏：工作副本列表 + 添加/移除。添加时用系统目录选择器，
 // 后端会校验所选目录是否为有效 svn 工作副本。
 // 每项支持右键菜单：在 Finder 中显示 / 从列表移除。
+// 支持从 Finder 拖动目录到侧栏区域直接添加为工作副本。
 export function Sidebar() {
   const workingCopies = useAppStore((s) => s.workingCopies);
   const selectedId = useAppStore((s) => s.selectedId);
@@ -31,23 +33,72 @@ export function Sidebar() {
   const [adding, setAdding] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [browserOpen, setBrowserOpen] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // 批量添加拖入/选择的目录，逐个校验并反馈。
+  async function addPaths(paths: string[]) {
+    if (paths.length === 0) return;
+    setAdding(true);
+    let ok = 0;
+    const failed: string[] = [];
+    for (const p of paths) {
+      try {
+        await addWorkingCopy(p);
+        ok += 1;
+      } catch (e) {
+        const err = e as SvnError;
+        const name = p.split("/").pop() || p;
+        failed.push(
+          err.code === "NOT_WORKING_COPY" ? `${name}（不是 SVN 工作副本）` : `${name}（${err.message}）`,
+        );
+      }
+    }
+    setAdding(false);
+    if (ok > 0) message.success(`已添加 ${ok} 个工作副本`);
+    if (failed.length > 0) message.error(`未能添加：${failed.join("、")}`);
+  }
+
+  // 判断落点（物理像素）是否落在侧栏矩形内。
+  function isInsideSidebar(x: number, y: number): boolean {
+    const el = sidebarRef.current;
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    // Tauri 拖放事件坐标是物理像素，换算成 CSS 像素再比较
+    const dpr = window.devicePixelRatio || 1;
+    const cx = x / dpr;
+    const cy = y / dpr;
+    return cx >= rect.left && cx <= rect.right && cy >= rect.top && cy <= rect.bottom;
+  }
+
+  // 监听 Tauri 原生拖放事件（webview 全局），仅处理落在侧栏内的拖放。
+  useEffect(() => {
+    const unlistenPromise = getCurrentWebview().onDragDropEvent((event) => {
+      const p = event.payload;
+      if (p.type === "over") {
+        setDragOver(isInsideSidebar(p.position.x, p.position.y));
+      } else if (p.type === "drop") {
+        const inside = isInsideSidebar(p.position.x, p.position.y);
+        setDragOver(false);
+        if (inside && p.paths.length > 0) {
+          void addPaths(p.paths);
+        }
+      } else {
+        // "leave" 或其它
+        setDragOver(false);
+      }
+    });
+    return () => {
+      void unlistenPromise.then((unlisten) => unlisten());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleAdd() {
-    const selected = await open({ directory: true, multiple: false, title: "选择 SVN 工作副本目录" });
-    if (typeof selected !== "string") return;
-    setAdding(true);
-    try {
-      await addWorkingCopy(selected);
-    } catch (e) {
-      const err = e as SvnError;
-      message.error(
-        err.code === "NOT_WORKING_COPY"
-          ? "所选目录不是有效的 SVN 工作副本"
-          : `添加失败：${err.message}`,
-      );
-    } finally {
-      setAdding(false);
-    }
+    const selected = await open({ directory: true, multiple: true, title: "选择 SVN 工作副本目录" });
+    if (selected == null) return;
+    const paths = Array.isArray(selected) ? selected : [selected];
+    await addPaths(paths);
   }
 
   function handleMenuClick(key: string, wc: WorkingCopy) {
@@ -65,7 +116,11 @@ export function Sidebar() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div
+      ref={sidebarRef}
+      className={dragOver ? "sidebar-drop-active" : undefined}
+      style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}
+    >
       <div
         style={{
           padding: "12px 16px",
@@ -104,7 +159,7 @@ export function Sidebar() {
       <List
         style={{ flex: 1, overflow: "auto" }}
         dataSource={workingCopies}
-        locale={{ emptyText: "尚未添加工作副本" }}
+        locale={{ emptyText: "尚未添加工作副本（可从 Finder 拖入目录）" }}
         renderItem={(wc) => (
           <Dropdown
             key={wc.id}
@@ -155,6 +210,12 @@ export function Sidebar() {
           </Dropdown>
         )}
       />
+      {dragOver && (
+        <div className="sidebar-drop-hint">
+          <FolderOpenOutlined style={{ fontSize: 28, marginBottom: 8 }} />
+          <div>松开以添加为工作副本</div>
+        </div>
+      )}
       <CheckoutDialog open={checkoutOpen} onClose={() => setCheckoutOpen(false)} />
       <RepoBrowser open={browserOpen} onClose={() => setBrowserOpen(false)} />
     </div>
