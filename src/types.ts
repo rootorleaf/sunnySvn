@@ -38,6 +38,12 @@ export type StatusKind =
   | "incomplete"
   | "none";
 
+/** 工作副本目录的直接子项（文件树懒加载用） */
+export interface FsEntry {
+  name: string;
+  isDir: boolean;
+}
+
 /** 工作副本的基本信息（svn info） */
 export interface WorkingCopyInfo {
   url: string;

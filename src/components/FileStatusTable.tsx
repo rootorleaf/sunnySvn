@@ -2,26 +2,14 @@
 // 大工作副本下用 antd 虚拟滚动，只渲染可视行，避免 DOM 爆炸。
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Dropdown, Empty, Modal, Table, Tag, message } from "antd";
+import { Dropdown, Empty, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import type { MenuProps } from "antd";
-import {
-  DiffOutlined,
-  PlusOutlined,
-  RollbackOutlined,
-  DeleteOutlined,
-  FolderOpenOutlined,
-  StopOutlined,
-  CheckCircleOutlined,
-  FileSearchOutlined,
-} from "@ant-design/icons";
 import { useAppStore } from "../stores/appStore";
-import * as svnApi from "../api/svn";
-import { showSvnError } from "../utils/errorDialog";
 import { BlameModal } from "./BlameModal";
+import { fileMenuItems, useFileActions } from "./fileActions";
 import type { StatusEntry, StatusKind } from "../types";
 
-// 状态码 → 显示标签（字符 + 颜色 + 含义），参考 SmartSVN / TortoiseSVN 约定。
+/** 状态码 → 显示标签（字符 + 颜色 + 含义），参考 SmartSVN / TortoiseSVN 约定。 */
 const STATUS_META: Record<StatusKind, { label: string; color: string; text: string }> = {
   modified: { label: "M", color: "orange", text: "已修改" },
   added: { label: "A", color: "green", text: "已添加" },
@@ -36,9 +24,6 @@ const STATUS_META: Record<StatusKind, { label: string; color: string; text: stri
   normal: { label: "", color: "default", text: "正常" },
   none: { label: "", color: "default", text: "-" },
 };
-
-/** 可「还原」的状态 */
-const REVERTABLE = new Set(["modified", "added", "deleted", "replaced", "missing", "conflicted"]);
 
 function StatusTag({ kind }: { kind: StatusKind }) {
   const meta = STATUS_META[kind];
@@ -59,13 +44,12 @@ interface CtxMenu {
 export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
   const selectedFile = useAppStore((s) => s.selectedFile);
   const selectFile = useAppStore((s) => s.selectFile);
-  const refreshStatus = useAppStore((s) => s.refreshStatus);
   const selectedId = useAppStore((s) => s.selectedId);
   const workingCopies = useAppStore((s) => s.workingCopies);
   const wcPath = workingCopies.find((w) => w.id === selectedId)?.path ?? null;
 
   const [ctx, setCtx] = useState<CtxMenu | null>(null);
-  const [blameFile, setBlameFile] = useState<string | null>(null);
+  const { runAction, blameFile, closeBlame } = useFileActions(wcPath);
   const menuWrapRef = useRef<HTMLDivElement>(null);
 
   // 虚拟滚动需要数字高/宽：用 ResizeObserver 测容器实际尺寸，喂给 Table 的 scroll。
@@ -151,112 +135,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
     [pathWidth],
   );
 
-  /** 右键菜单项按文件状态动态生成 */
-  function menuItems(entry: StatusEntry): MenuProps["items"] {
-    const items: MenuProps["items"] = [
-      { key: "diff", label: "显示差异", icon: <DiffOutlined /> },
-    ];
-    // 冲突文件：优先展示解决入口
-    if (entry.itemStatus === "conflicted") {
-      items.push({
-        key: "resolve",
-        label: "解决冲突",
-        icon: <CheckCircleOutlined />,
-        children: [
-          { key: "resolve:working", label: "保留当前内容（working）" },
-          { key: "resolve:mine-full", label: "采用我的（mine-full）" },
-          { key: "resolve:theirs-full", label: "采用对方的（theirs-full）" },
-        ],
-      });
-    }
-    if (entry.itemStatus === "unversioned") {
-      items.push({ key: "add", label: "加入版本控制", icon: <PlusOutlined /> });
-      items.push({ key: "ignore", label: "加入忽略列表", icon: <StopOutlined /> });
-    }
-    if (REVERTABLE.has(entry.itemStatus)) {
-      items.push({ key: "revert", label: "还原改动", icon: <RollbackOutlined /> });
-    }
-    // blame 仅对版本化的文件有意义
-    if (entry.versioned && entry.itemStatus !== "deleted" && entry.itemStatus !== "missing") {
-      items.push({ key: "blame", label: "Blame 注释", icon: <FileSearchOutlined /> });
-    }
-    // 已删除/丢失的文件磁盘上不存在，无法在 Finder 中显示
-    if (entry.itemStatus !== "deleted" && entry.itemStatus !== "missing") {
-      items.push({ key: "reveal", label: "在 Finder 中显示", icon: <FolderOpenOutlined /> });
-    }
-    items.push({ type: "divider" });
-    items.push({ key: "delete", label: "删除", icon: <DeleteOutlined />, danger: true });
-    return items;
-  }
-
-  async function runAction(key: string, entry: StatusEntry) {
-    if (!wcPath) return;
-    try {
-      if (key === "diff") {
-        selectFile(entry);
-      } else if (key.startsWith("resolve:")) {
-        const accept = key.slice("resolve:".length);
-        await svnApi.resolveConflicts(wcPath, [entry.path], accept);
-        message.success(`已解决冲突：${entry.path}`);
-        await refreshStatus();
-      } else if (key === "blame") {
-        setBlameFile(entry.path);
-      } else if (key === "ignore") {
-        await svnApi.addToIgnore(wcPath, entry.path);
-        message.success(`已加入忽略：${entry.path}`);
-        await refreshStatus();
-      } else if (key === "reveal") {
-        await svnApi.revealInFinder(`${wcPath}/${entry.path}`);
-      } else if (key === "add") {
-        await svnApi.addFiles(wcPath, [entry.path]);
-        message.success(`已加入版本控制：${entry.path}`);
-        await refreshStatus();
-      } else if (key === "revert") {
-        Modal.confirm({
-          title: "还原改动？",
-          content: `将丢弃 ${entry.path} 的本地改动，且不可恢复。`,
-          okText: "还原",
-          okButtonProps: { danger: true },
-          cancelText: "取消",
-          async onOk() {
-            try {
-              await svnApi.revertFiles(wcPath, [entry.path]);
-              message.success(`已还原：${entry.path}`);
-              await refreshStatus();
-            } catch (e) {
-              showSvnError(e, "还原失败");
-            }
-          },
-        });
-      } else if (key === "delete") {
-        const unversioned = entry.itemStatus === "unversioned";
-        Modal.confirm({
-          title: "删除文件？",
-          content: unversioned
-            ? `${entry.path} 未受版本控制，将直接从磁盘删除，不可恢复。`
-            : `${entry.path} 将被 svn delete（本地立即删除，提交后从仓库移除）。`,
-          okText: "删除",
-          okButtonProps: { danger: true },
-          cancelText: "取消",
-          async onOk() {
-            try {
-              await svnApi.deleteFiles(
-                wcPath,
-                unversioned ? [] : [entry.path],
-                unversioned ? [entry.path] : [],
-              );
-              message.success(`已删除：${entry.path}`);
-              await refreshStatus();
-            } catch (e) {
-              showSvnError(e, "删除失败");
-            }
-          },
-        });
-      }
-    } catch (e) {
-      showSvnError(e);
-    }
-  }
+  /** 右键菜单项与动作执行统一由 fileActions 提供（与树视图共用） */
 
   if (entries.length === 0) {
     return (
@@ -301,7 +180,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
               if (!o) setCtx(null);
             }}
             menu={{
-              items: menuItems(ctx.entry),
+              items: fileMenuItems(ctx.entry),
               onClick: ({ key }) => {
                 const entry = ctx.entry;
                 setCtx(null);
@@ -318,7 +197,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
           open
           wcPath={wcPath}
           file={blameFile}
-          onClose={() => setBlameFile(null)}
+          onClose={closeBlame}
         />
       )}
     </>

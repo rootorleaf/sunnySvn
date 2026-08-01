@@ -13,6 +13,7 @@ import type {
   BlameLine,
   SvnProperty,
   MergeResult,
+  FsEntry,
 } from "../types";
 
 /** 后端返回的结构化错误 */
@@ -101,6 +102,11 @@ export function getLog(path: string, limit: number, beforeRev?: number): Promise
 /** 在 Finder 中显示指定路径（打开所在目录并选中） */
 export function revealInFinder(path: string): Promise<void> {
   return call<void>("reveal_in_finder", { path });
+}
+
+/** 列出工作副本内某相对目录的直接子项（跳过 .svn；文件树懒加载用） */
+export function listDir(wcPath: string, relPath: string): Promise<FsEntry[]> {
+  return call<FsEntry[]>("list_dir", { wcPath, relPath });
 }
 
 /** 开始监控某工作副本目录，本地文件变动经防抖后推送 wc-changed 事件 */

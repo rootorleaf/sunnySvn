@@ -42,6 +42,7 @@ pub fn run() {
             system_cmd::reveal_in_finder,
             system_cmd::watch_working_copy,
             system_cmd::unwatch_working_copy,
+            system_cmd::list_dir,
             remote_cmd::resolve_repo_url,
             remote_cmd::list_repo,
             remote_cmd::start_checkout,

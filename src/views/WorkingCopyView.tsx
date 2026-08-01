@@ -14,9 +14,12 @@ import {
   ToolOutlined,
   DownOutlined,
   ProfileOutlined,
+  UnorderedListOutlined,
+  ApartmentOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../stores/appStore";
 import { FileStatusTable } from "../components/FileStatusTable";
+import { FileTreeView } from "../components/FileTreeView";
 import { BottomPanel } from "../components/BottomPanel";
 import { CommitDialog } from "../components/CommitDialog";
 import { LogModal } from "../components/LogModal";
@@ -50,6 +53,7 @@ export function WorkingCopyView() {
   const [mergeOpen, setMergeOpen] = useState(false);
   const [propOpen, setPropOpen] = useState(false);
   const [cleaningUp, setCleaningUp] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "tree">("tree");
 
   const selected = useMemo(
     () => workingCopies.find((w) => w.id === selectedId) ?? null,
@@ -177,6 +181,22 @@ export function WorkingCopyView() {
           <Button icon={<ReloadOutlined />} onClick={() => void refreshStatus()} title="刷新 ⌘R">
             刷新
           </Button>
+          <Space.Compact>
+            <Button
+              size="small"
+              type={viewMode === "tree" ? "primary" : "default"}
+              icon={<ApartmentOutlined />}
+              onClick={() => setViewMode("tree")}
+              title="文件树视图"
+            />
+            <Button
+              size="small"
+              type={viewMode === "list" ? "primary" : "default"}
+              icon={<UnorderedListOutlined />}
+              onClick={() => setViewMode("list")}
+              title="列表视图"
+            />
+          </Space.Compact>
           <Dropdown menu={moreMenu} disabled={cleaningUp}>
             <Button icon={<DownOutlined />} loading={cleaningUp}>
               更多
@@ -201,6 +221,8 @@ export function WorkingCopyView() {
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 48 }}>
             <Spin />
           </div>
+        ) : viewMode === "tree" ? (
+          <FileTreeView wcPath={selected.path} entries={statusEntries} />
         ) : (
           <FileStatusTable entries={statusEntries} />
         )}
