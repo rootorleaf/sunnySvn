@@ -40,6 +40,10 @@ pub struct ChangedPath {
     pub path: String,
     /// file / dir（svn 1.7+ 提供，缺省为空）
     pub kind: String,
+    /// 复制来源路径（分支/标签创建时有，如 /trunk），修订版本图用
+    pub copyfrom_path: Option<String>,
+    /// 复制来源修订号
+    pub copyfrom_rev: Option<i64>,
 }
 
 /// 一条提交日志，对齐前端 LogEntry。
@@ -379,6 +383,8 @@ pub fn parse_log(xml: &str) -> Result<Vec<LogEntry>, SvnError> {
     let mut cur_path_action = String::new();
     let mut cur_path_kind = String::new();
     let mut cur_path_text = String::new();
+    let mut cur_copyfrom_path: Option<String> = None;
+    let mut cur_copyfrom_rev: Option<i64> = None;
     // 元素栈：把 Text 归属到正确字段；Empty 元素不入栈
     let mut stack: Vec<Vec<u8>> = Vec::new();
 
@@ -400,6 +406,8 @@ pub fn parse_log(xml: &str) -> Result<Vec<LogEntry>, SvnError> {
                     b"path" => {
                         cur_path_action = attr(&e, b"action").unwrap_or_default();
                         cur_path_kind = attr(&e, b"kind").unwrap_or_default();
+                        cur_copyfrom_path = attr(&e, b"copyfrom-path");
+                        cur_copyfrom_rev = attr(&e, b"copyfrom-rev").and_then(|r| r.parse().ok());
                         cur_path_text.clear();
                     }
                     _ => {}
@@ -424,6 +432,8 @@ pub fn parse_log(xml: &str) -> Result<Vec<LogEntry>, SvnError> {
                             action: cur_path_action.clone(),
                             path: cur_path_text.clone(),
                             kind: cur_path_kind.clone(),
+                            copyfrom_path: cur_copyfrom_path.take(),
+                            copyfrom_rev: cur_copyfrom_rev.take(),
                         });
                     }
                     b"logentry" => {
@@ -686,6 +696,27 @@ mod tests {
         assert_eq!(entries[0].changed_paths[1].action, "A");
         assert_eq!(entries[1].revision, 1);
         assert_eq!(entries[1].changed_paths[0].kind, "dir");
+    }
+
+    #[test]
+    fn parses_log_copyfrom() {
+        // 分支创建：path 带 copyfrom-path / copyfrom-rev 属性
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<log>
+<logentry revision="3">
+<author>alice</author>
+<date>2026-07-24T12:00:00.000000Z</date>
+<paths>
+<path action="A" kind="dir" copyfrom-path="/trunk" copyfrom-rev="2">/branches/feature-x</path>
+</paths>
+<msg>create branch</msg>
+</logentry>
+</log>"#;
+        let entries = parse_log(xml).unwrap();
+        let p = &entries[0].changed_paths[0];
+        assert_eq!(p.path, "/branches/feature-x");
+        assert_eq!(p.copyfrom_path.as_deref(), Some("/trunk"));
+        assert_eq!(p.copyfrom_rev, Some(2));
     }
 
     #[test]

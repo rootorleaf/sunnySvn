@@ -99,6 +99,11 @@ export function getLog(path: string, limit: number, beforeRev?: number): Promise
   return call<LogEntry[]>("get_log", { path, limit, beforeRev: beforeRev ?? null });
 }
 
+/** 整仓库日志（以仓库根为目标，含 copyfrom 信息），修订版本图用 */
+export function getRepoLog(path: string, limit: number): Promise<LogEntry[]> {
+  return call<LogEntry[]>("get_repo_log", { path, limit });
+}
+
 /** 在 Finder 中显示指定路径（打开所在目录并选中） */
 export function revealInFinder(path: string): Promise<void> {
   return call<void>("reveal_in_finder", { path });

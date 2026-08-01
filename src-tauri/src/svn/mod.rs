@@ -247,6 +247,19 @@ pub async fn log(path: &str, limit: u32, before_rev: Option<i64>) -> Result<Vec<
     parse_log(&out.stdout)
 }
 
+/// 整仓库日志：以仓库根为目标取最近 N 条（-v 含 copyfrom 信息）。
+/// 修订版本图用——工作副本自身的 log 只覆盖其 URL 子树，看不到其他分支/标签。
+pub async fn repo_log(path: &str, limit: u32) -> Result<Vec<LogEntry>, SvnError> {
+    let wc = info(path).await?;
+    let limit_s = limit.to_string();
+    let out = runner::query_in(
+        path,
+        &["log", "--xml", "-v", "-l", &limit_s, "-r", "HEAD:1", &wc.repository_root],
+    )
+    .await?;
+    parse_log(&out.stdout)
+}
+
 // ========== M3: 分支 / 合并 / 冲突 / blame / 属性 / 其它 ==========
 
 /// 远端 copy：创建分支或标签。`src`/`dst` 均为仓库 URL。

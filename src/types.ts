@@ -73,6 +73,10 @@ export interface ChangedPath {
   path: string;
   /** file / dir */
   kind: string;
+  /** 复制来源路径（分支/标签创建时有，如 /trunk），修订版本图用 */
+  copyfromPath: string | null;
+  /** 复制来源修订号 */
+  copyfromRev: number | null;
 }
 
 /** 一条提交日志 */

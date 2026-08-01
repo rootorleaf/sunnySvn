@@ -33,6 +33,7 @@ pub fn run() {
             svn_cmd::revert_files,
             svn_cmd::get_file_diff,
             svn_cmd::get_log,
+            svn_cmd::get_repo_log,
             config_cmd::list_working_copies,
             config_cmd::add_working_copy,
             config_cmd::remove_working_copy,

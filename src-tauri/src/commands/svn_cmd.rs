@@ -90,3 +90,9 @@ pub async fn get_log(
 ) -> Result<Vec<LogEntry>, SvnError> {
     svn::log(&path, limit, before_rev).await
 }
+
+/// 整仓库日志（以仓库根为目标，含 copyfrom），修订版本图用。
+#[tauri::command]
+pub async fn get_repo_log(path: String, limit: u32) -> Result<Vec<LogEntry>, SvnError> {
+    svn::repo_log(&path, limit).await
+}
