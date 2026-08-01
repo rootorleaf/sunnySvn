@@ -18,6 +18,7 @@ import { CheckoutDialog } from "./CheckoutDialog";
 import { RepoBrowser } from "./RepoBrowser";
 import { ThemeToggle } from "./ThemeToggle";
 import { SettingsDialog } from "./SettingsDialog";
+import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { WorkingCopy } from "../types";
 
@@ -92,13 +93,13 @@ export function Sidebar() {
         const err = e as SvnError;
         const name = p.split("/").pop() || p;
         failed.push(
-          err.code === "NOT_WORKING_COPY" ? `${name}（不是 SVN 工作副本）` : `${name}（${err.message}）`,
+          err.code === "NOT_WORKING_COPY" ? t("{0}（不是 SVN 工作副本）", name) : `${name}（${err.message}）`,
         );
       }
     }
     setAdding(false);
-    if (ok > 0) message.success(`已添加 ${ok} 个工作副本`);
-    if (failed.length > 0) message.error(`未能添加：${failed.join("、")}`);
+    if (ok > 0) message.success(t("已添加 {0} 个工作副本", ok));
+    if (failed.length > 0) message.error(t("未能添加：{0}", failed.join("、")));
   }
 
   // 判断落点（物理像素）是否落在侧栏矩形内。
@@ -137,7 +138,7 @@ export function Sidebar() {
   }, []);
 
   async function handleAdd() {
-    const selected = await open({ directory: true, multiple: true, title: "选择 SVN 工作副本目录" });
+    const selected = await open({ directory: true, multiple: true, title: t("选择 SVN 工作副本目录") });
     if (selected == null) return;
     const paths = Array.isArray(selected) ? selected : [selected];
     await addPaths(paths);
@@ -145,13 +146,13 @@ export function Sidebar() {
 
   function handleMenuClick(key: string, wc: WorkingCopy) {
     if (key === "reveal") {
-      svnApi.revealInFinder(wc.path).catch((e) => showSvnError(e, "无法在 Finder 中显示"));
+      svnApi.revealInFinder(wc.path).catch((e) => showSvnError(e, t("无法在 Finder 中显示")));
     } else if (key === "remove") {
       Modal.confirm({
-        title: "从列表移除？",
-        content: "仅从应用移除,不会删除本地文件。",
-        okText: "移除",
-        cancelText: "取消",
+        title: t("从列表移除？"),
+        content: t("仅从应用移除，不会删除本地文件。"),
+        okText: t("移除"),
+        cancelText: t("取消"),
         onOk: () => void removeWorkingCopy(wc.id),
       });
     }
@@ -172,21 +173,21 @@ export function Sidebar() {
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <Text strong>工作副本</Text>
+        <Text strong>{t("工作副本")}</Text>
         <Space size={0}>
           <Button
             size="small"
             type="text"
             icon={<GlobalOutlined />}
             onClick={() => setBrowserOpen(true)}
-            title="仓库浏览器"
+            title={t("仓库浏览器")}
           />
           <Button
             size="small"
             type="text"
             icon={<CloudDownloadOutlined />}
             onClick={() => setCheckoutOpen(true)}
-            title="Checkout 仓库"
+            title={t("Checkout 仓库")}
           />
           <Button
             size="small"
@@ -194,7 +195,7 @@ export function Sidebar() {
             icon={<PlusOutlined />}
             loading={adding}
             onClick={handleAdd}
-            title="添加本地工作副本"
+            title={t("添加本地工作副本")}
           />
           <ThemeToggle />
         </Space>
@@ -202,16 +203,16 @@ export function Sidebar() {
       <List
         style={{ flex: 1, overflow: "auto" }}
         dataSource={workingCopies}
-        locale={{ emptyText: "尚未添加工作副本（可从 Finder 拖入目录）" }}
+        locale={{ emptyText: t("尚未添加工作副本（可从 Finder 拖入目录）") }}
         renderItem={(wc) => (
           <Dropdown
             key={wc.id}
             trigger={["contextMenu"]}
             menu={{
               items: [
-                { key: "reveal", label: "在 Finder 中显示", icon: <FolderOpenOutlined /> },
+                { key: "reveal", label: t("在 Finder 中显示"), icon: <FolderOpenOutlined /> },
                 { type: "divider" },
-                { key: "remove", label: "从列表移除", icon: <DeleteOutlined />, danger: true },
+                { key: "remove", label: t("从列表移除"), icon: <DeleteOutlined />, danger: true },
               ],
               onClick: ({ key }) => handleMenuClick(key, wc),
             }}
@@ -226,8 +227,8 @@ export function Sidebar() {
                 ) : null,
                 <Popconfirm
                   key="del"
-                  title="从列表移除？"
-                  description="仅从应用移除，不会删除本地文件。"
+                  title={t("从列表移除？")}
+                  description={t("仅从应用移除，不会删除本地文件。")}
                   onConfirm={(e) => {
                     e?.stopPropagation();
                     void removeWorkingCopy(wc.id);
@@ -271,13 +272,13 @@ export function Sidebar() {
           type="text"
           icon={<SettingOutlined />}
           onClick={() => setSettingsOpen(true)}
-          title="设置"
+          title={t("设置")}
         />
       </div>
       {dragOver && (
         <div className="sidebar-drop-hint">
           <FolderOpenOutlined style={{ fontSize: 28, marginBottom: 8 }} />
-          <div>松开以添加为工作副本</div>
+          <div>{t("松开以添加为工作副本")}</div>
         </div>
       )}
       <CheckoutDialog open={checkoutOpen} onClose={() => setCheckoutOpen(false)} />

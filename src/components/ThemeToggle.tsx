@@ -3,6 +3,7 @@
 import { BgColorsOutlined, DesktopOutlined, SunOutlined, MoonOutlined } from "@ant-design/icons";
 import { Dropdown, type MenuProps } from "antd";
 import { useTheme, type ThemeMode } from "../theme/ThemeProvider";
+import { t } from "../i18n";
 
 const MODE_LABEL: Record<ThemeMode, string> = {
   system: "跟随系统",
@@ -19,7 +20,7 @@ export function ThemeToggle() {
       label: (
         <span>
           <DesktopOutlined style={{ marginRight: 6 }} />
-          跟随系统
+          {t("跟随系统")}
         </span>
       ),
     },
@@ -28,7 +29,7 @@ export function ThemeToggle() {
       label: (
         <span>
           <SunOutlined style={{ marginRight: 6 }} />
-          浅色
+          {t("浅色")}
         </span>
       ),
     },
@@ -37,7 +38,7 @@ export function ThemeToggle() {
       label: (
         <span>
           <MoonOutlined style={{ marginRight: 6 }} />
-          深色
+          {t("深色")}
         </span>
       ),
     },
@@ -54,7 +55,7 @@ export function ThemeToggle() {
     >
       <button
         className="theme-toggle-btn"
-        title={`主题：${MODE_LABEL[mode]}`}
+        title={t("主题：{0}", t(MODE_LABEL[mode]))}
       >
         <BgColorsOutlined />
       </button>

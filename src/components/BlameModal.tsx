@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Modal, Spin, Typography } from "antd";
 import * as svnApi from "../api/svn";
+import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { BlameLine } from "../types";
 
@@ -96,7 +97,7 @@ export function BlameModal({
               <span
                 className="blame-meta"
                 style={{ background: revColor(l.revision) }}
-                title={l.date ? `${l.author} · ${l.date}` : "本地未提交改动"}
+                title={l.date ? `${l.author} · ${l.date}` : t("本地未提交改动")}
               >
                 <span className="blame-rev">{l.revision ?? "•"}</span>
                 <span className="blame-author">{l.author || "—"}</span>
@@ -110,7 +111,7 @@ export function BlameModal({
               <span className="blame-code">{l.content || " "}</span>
             </div>
           ))}
-          {lines.length === 0 && <Text type="secondary">（空文件）</Text>}
+          {lines.length === 0 && <Text type="secondary">{t("（空文件）")}</Text>}
         </div>
       )}
     </Modal>

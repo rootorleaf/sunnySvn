@@ -17,6 +17,7 @@ import {
 import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
 import { showSvnError } from "../utils/errorDialog";
+import { t } from "../i18n";
 import type { StatusEntry } from "../types";
 
 /** 可「还原」的状态 */
@@ -32,38 +33,38 @@ export function fileMenuItems(entry: StatusEntry, opts?: { isDir?: boolean }): M
   const items: MenuProps["items"] = [];
   // 目录没有文本差异；干净条目（树视图的未改动文件）没有可看的差异
   if (!isDir && entry.itemStatus !== "normal" && entry.itemStatus !== "none") {
-    items.push({ key: "diff", label: "显示差异", icon: <DiffOutlined /> });
+    items.push({ key: "diff", label: t("显示差异"), icon: <DiffOutlined /> });
   }
   // 冲突文件：优先展示解决入口
   if (entry.itemStatus === "conflicted") {
     items.push({
       key: "resolve",
-      label: "解决冲突",
+      label: t("解决冲突"),
       icon: <CheckCircleOutlined />,
       children: [
-        { key: "resolve:working", label: "保留当前内容（working）" },
-        { key: "resolve:mine-full", label: "采用我的（mine-full）" },
-        { key: "resolve:theirs-full", label: "采用对方的（theirs-full）" },
+        { key: "resolve:working", label: t("保留当前内容（working）") },
+        { key: "resolve:mine-full", label: t("采用我的（mine-full）") },
+        { key: "resolve:theirs-full", label: t("采用对方的（theirs-full）") },
       ],
     });
   }
   if (entry.itemStatus === "unversioned") {
-    items.push({ key: "add", label: "加入版本控制", icon: <PlusOutlined /> });
-    items.push({ key: "ignore", label: "加入忽略列表", icon: <StopOutlined /> });
+    items.push({ key: "add", label: t("加入版本控制"), icon: <PlusOutlined /> });
+    items.push({ key: "ignore", label: t("加入忽略列表"), icon: <StopOutlined /> });
   }
   if (REVERTABLE.has(entry.itemStatus)) {
-    items.push({ key: "revert", label: "还原改动", icon: <RollbackOutlined /> });
+    items.push({ key: "revert", label: t("还原改动"), icon: <RollbackOutlined /> });
   }
   // blame 仅对版本化的文件有意义
   if (!isDir && entry.versioned && entry.itemStatus !== "deleted" && entry.itemStatus !== "missing") {
-    items.push({ key: "blame", label: "Blame 注释", icon: <FileSearchOutlined /> });
+    items.push({ key: "blame", label: t("Blame 注释"), icon: <FileSearchOutlined /> });
   }
   // 已删除/丢失的文件磁盘上不存在，无法在 Finder 中显示
   if (entry.itemStatus !== "deleted" && entry.itemStatus !== "missing") {
-    items.push({ key: "reveal", label: "在 Finder 中显示", icon: <FolderOpenOutlined /> });
+    items.push({ key: "reveal", label: t("在 Finder 中显示"), icon: <FolderOpenOutlined /> });
   }
   items.push({ type: "divider" });
-  items.push({ key: "delete", label: "删除", icon: <DeleteOutlined />, danger: true });
+  items.push({ key: "delete", label: t("删除"), icon: <DeleteOutlined />, danger: true });
   return items;
 }
 
@@ -84,47 +85,47 @@ export function useFileActions(wcPath: string | null) {
       } else if (key.startsWith("resolve:")) {
         const accept = key.slice("resolve:".length);
         await svnApi.resolveConflicts(wcPath, [entry.path], accept);
-        message.success(`已解决冲突：${entry.path}`);
+        message.success(t("已解决冲突：{0}", entry.path));
         await refreshStatus();
       } else if (key === "blame") {
         setBlameFile(entry.path);
       } else if (key === "ignore") {
         await svnApi.addToIgnore(wcPath, entry.path);
-        message.success(`已加入忽略：${entry.path}`);
+        message.success(t("已加入忽略：{0}", entry.path));
         await refreshStatus();
       } else if (key === "reveal") {
         await svnApi.revealInFinder(`${wcPath}/${entry.path}`);
       } else if (key === "add") {
         await svnApi.addFiles(wcPath, [entry.path]);
-        message.success(`已加入版本控制：${entry.path}`);
+        message.success(t("已加入版本控制：{0}", entry.path));
         await refreshStatus();
       } else if (key === "revert") {
         Modal.confirm({
-          title: "还原改动？",
-          content: `将丢弃 ${entry.path} 的本地改动，且不可恢复。`,
-          okText: "还原",
+          title: t("还原改动？"),
+          content: t("将丢弃 {0} 的本地改动，且不可恢复。", entry.path),
+          okText: t("还原"),
           okButtonProps: { danger: true },
-          cancelText: "取消",
+          cancelText: t("取消"),
           async onOk() {
             try {
               await svnApi.revertFiles(wcPath, [entry.path]);
-              message.success(`已还原：${entry.path}`);
+              message.success(t("已还原：{0}", entry.path));
               await refreshStatus();
             } catch (e) {
-              showSvnError(e, "还原失败");
+              showSvnError(e, t("还原失败"));
             }
           },
         });
       } else if (key === "delete") {
         const unversioned = entry.itemStatus === "unversioned";
         Modal.confirm({
-          title: "删除文件？",
+          title: t("删除文件？"),
           content: unversioned
-            ? `${entry.path} 未受版本控制，将直接从磁盘删除，不可恢复。`
-            : `${entry.path} 将被 svn delete（本地立即删除，提交后从仓库移除）。`,
-          okText: "删除",
+            ? t("{0} 未受版本控制，将直接从磁盘删除，不可恢复。", entry.path)
+            : t("{0} 将被 svn delete（本地立即删除，提交后从仓库移除）。", entry.path),
+          okText: t("删除"),
           okButtonProps: { danger: true },
-          cancelText: "取消",
+          cancelText: t("取消"),
           async onOk() {
             try {
               await svnApi.deleteFiles(
@@ -132,10 +133,10 @@ export function useFileActions(wcPath: string | null) {
                 unversioned ? [] : [entry.path],
                 unversioned ? [entry.path] : [],
               );
-              message.success(`已删除：${entry.path}`);
+              message.success(t("已删除：{0}", entry.path));
               await refreshStatus();
             } catch (e) {
-              showSvnError(e, "删除失败");
+              showSvnError(e, t("删除失败"));
             }
           },
         });

@@ -18,6 +18,7 @@ import {
   InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useTheme, type ThemeMode, type FontScale } from "../theme/ThemeProvider";
+import { t, useI18n, type Locale } from "../i18n";
 import * as svnApi from "../api/svn";
 import type { SvnInfo } from "../types";
 
@@ -43,23 +44,24 @@ const HOTKEYS: { keys: string; desc: string }[] = [
   { keys: "Esc", desc: "关闭当前对话框" },
 ];
 
-const HOTKEY_COLUMNS: ColumnsType<{ keys: string; desc: string }> = [
-  { title: "操作", dataIndex: "desc", key: "desc" },
-  {
-    title: "快捷键",
-    dataIndex: "keys",
-    key: "keys",
-    width: 140,
-    render: (k: string) => <Tag style={{ fontFamily: "monospace" }}>{k}</Tag>,
-  },
-];
-
 export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { mode, setMode, fontScale, setFontScale } = useTheme();
+  const { locale, setLocale } = useI18n();
   const [section, setSection] = useState<Section>("appearance");
   const [svnPath, setSvnPath] = useState("");
   const [svnInfo, setSvnInfo] = useState<SvnInfo | null>(null);
   const [savingPath, setSavingPath] = useState(false);
+
+  const hotkeyColumns: ColumnsType<{ keys: string; desc: string }> = [
+    { title: t("操作"), dataIndex: "desc", key: "desc", render: (d: string) => t(d) },
+    {
+      title: t("快捷键"),
+      dataIndex: "keys",
+      key: "keys",
+      width: 140,
+      render: (k: string) => <Tag style={{ fontFamily: "monospace" }}>{k}</Tag>,
+    },
+  ];
 
   useEffect(() => {
     if (!open) return;
@@ -73,9 +75,9 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
       await svnApi.setSvnPathOverride(svnPath.trim());
       const info = await svnApi.detectSvn();
       setSvnInfo(info);
-      message.success("svn 路径已更新");
+      message.success(t("svn 路径已更新"));
     } catch (e) {
-      message.error(`svn 路径无效：${(e as { message?: string }).message ?? e}`);
+      message.error(t("svn 路径无效：{0}", String((e as { message?: string }).message ?? e)));
     } finally {
       setSavingPath(false);
     }
@@ -86,32 +88,45 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
       case "appearance":
         return (
           <div style={{ padding: "4px 0" }}>
-            <Title level={5} style={{ marginTop: 0 }}>外观</Title>
+            <Title level={5} style={{ marginTop: 0 }}>{t("外观")}</Title>
             <div style={{ marginBottom: 24 }}>
               <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 8 }}>
-                主题
+                {t("主题")}
               </Text>
               <Segmented
                 value={mode}
                 onChange={(v) => setMode(v as ThemeMode)}
                 options={[
-                  { label: "跟随系统", value: "system" },
-                  { label: "浅色", value: "light" },
-                  { label: "深色", value: "dark" },
+                  { label: t("跟随系统"), value: "system" },
+                  { label: t("浅色"), value: "light" },
+                  { label: t("深色"), value: "dark" },
                 ]}
               />
             </div>
-            <div>
+            <div style={{ marginBottom: 24 }}>
               <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 8 }}>
-                字号
+                {t("字号")}
               </Text>
               <Segmented
                 value={fontScale}
                 onChange={(v) => setFontScale(v as FontScale)}
                 options={[
-                  { label: "小", value: "small" },
-                  { label: "中", value: "medium" },
-                  { label: "大", value: "large" },
+                  { label: t("小"), value: "small" },
+                  { label: t("中"), value: "medium" },
+                  { label: t("大"), value: "large" },
+                ]}
+              />
+            </div>
+            <div>
+              <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 8 }}>
+                {t("语言")}
+              </Text>
+              <Segmented
+                value={locale}
+                onChange={(v) => setLocale(v as Locale)}
+                options={[
+                  { label: "中文", value: "zh" },
+                  { label: "English", value: "en" },
                 ]}
               />
             </div>
@@ -120,9 +135,9 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
       case "svn":
         return (
           <div style={{ padding: "4px 0" }}>
-            <Title level={5} style={{ marginTop: 0 }}>svn 路径</Title>
+            <Title level={5} style={{ marginTop: 0 }}>{t("svn 路径")}</Title>
             <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 12 }}>
-              留空则自动探测（PATH、Homebrew 常见位置）。指定后覆盖自动探测。
+              {t("留空则自动探测（PATH、Homebrew 常见位置）。指定后覆盖自动探测。")}
             </Text>
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
               <Input
@@ -132,15 +147,15 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                 onPressEnter={handleSavePath}
               />
               <Button type="primary" loading={savingPath} onClick={handleSavePath}>
-                保存
+                {t("保存")}
               </Button>
             </div>
             {svnInfo && (
               <Descriptions column={1} size="small" bordered>
-                <Descriptions.Item label="当前 svn 版本">
+                <Descriptions.Item label={t("当前 svn 版本")}>
                   {svnInfo.version.split("\n")[0] || "—"}
                 </Descriptions.Item>
-                <Descriptions.Item label="当前 svn 路径">
+                <Descriptions.Item label={t("当前 svn 路径")}>
                   {svnInfo.path || "—"}
                 </Descriptions.Item>
               </Descriptions>
@@ -150,12 +165,12 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
       case "hotkeys":
         return (
           <div style={{ padding: "4px 0" }}>
-            <Title level={5} style={{ marginTop: 0 }}>快捷键</Title>
+            <Title level={5} style={{ marginTop: 0 }}>{t("快捷键")}</Title>
             <Table
               rowKey="keys"
               size="small"
               pagination={false}
-              columns={HOTKEY_COLUMNS}
+              columns={hotkeyColumns}
               dataSource={HOTKEYS}
               style={{ marginTop: 8 }}
             />
@@ -164,14 +179,14 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
       case "about":
         return (
           <div style={{ padding: "4px 0" }}>
-            <Title level={5} style={{ marginTop: 0 }}>关于</Title>
+            <Title level={5} style={{ marginTop: 0 }}>{t("关于")}</Title>
             <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label="应用">SunnySVN</Descriptions.Item>
-              <Descriptions.Item label="版本">0.1.0</Descriptions.Item>
-              <Descriptions.Item label="svn 版本">
-                {svnInfo ? svnInfo.version.split("\n")[0] : "未检测到"}
+              <Descriptions.Item label={t("应用")}>SunnySVN</Descriptions.Item>
+              <Descriptions.Item label={t("版本")}>0.1.0</Descriptions.Item>
+              <Descriptions.Item label={t("svn 版本")}>
+                {svnInfo ? svnInfo.version.split("\n")[0] : t("未检测到")}
               </Descriptions.Item>
-              <Descriptions.Item label="svn 路径">
+              <Descriptions.Item label={t("svn 路径")}>
                 {svnInfo?.path ?? "—"}
               </Descriptions.Item>
             </Descriptions>
@@ -182,7 +197,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
 
   return (
     <Modal
-      title="设置"
+      title={t("设置")}
       open={open}
       onCancel={onClose}
       footer={null}
@@ -220,7 +235,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
               }}
             >
               {item.icon}
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </div>
           ))}
         </div>

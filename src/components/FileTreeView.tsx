@@ -11,6 +11,7 @@ import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
 import { BlameModal } from "./BlameModal";
 import { fileMenuItems, useFileActions } from "./fileActions";
+import { t } from "../i18n";
 import type { FsEntry, StatusEntry, StatusKind } from "../types";
 
 // 状态码 → 角标
@@ -77,7 +78,7 @@ function nodeTitle(name: string, isDir: boolean, entry?: StatusEntry, changedCou
           count={changedCount}
           size="small"
           style={{ backgroundColor: "#fa8c16" }}
-          title={`${changedCount} 个改动`}
+          title={t("{0} 个改动", changedCount ?? 0)}
         />
       )}
     </span>
@@ -249,7 +250,7 @@ export function FileTreeView({ wcPath, entries }: { wcPath: string; entries: Sta
   if (treeData.length === 0) {
     return (
       <div style={{ display: "flex", justifyContent: "center", paddingTop: 48 }}>
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="目录为空" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("目录为空")} />
       </div>
     );
   }

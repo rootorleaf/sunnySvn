@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Collapse, Input, Modal, Space, Typography, message } from "antd";
 import * as svnApi from "../api/svn";
+import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { AuthInput, MergeResult } from "../types";
 
@@ -45,7 +46,7 @@ export function MergeDialog({
 
   async function doMerge() {
     if (!sourceUrl.trim()) {
-      message.warning("请填写合并来源 URL");
+      message.warning(t("请填写合并来源 URL"));
       return;
     }
     setLoading(true);
@@ -66,9 +67,9 @@ export function MergeDialog({
       setResult(res);
       onMerged();
       if (res.hasConflicts) {
-        message.warning("合并完成，但存在冲突，请在文件列表中解决");
+        message.warning(t("合并完成，但存在冲突，请在文件列表中解决"));
       } else {
-        message.success("合并完成");
+        message.success(t("合并完成"));
       }
     } catch (e) {
       const err = e as SvnError;
@@ -81,11 +82,11 @@ export function MergeDialog({
 
   return (
     <Modal
-      title="合并到工作副本"
+      title={t("合并到工作副本")}
       open={open}
       onCancel={onClose}
       onOk={() => void doMerge()}
-      okText="合并"
+      okText={t("合并")}
       confirmLoading={loading}
       width={680}
       destroyOnClose
@@ -93,14 +94,14 @@ export function MergeDialog({
       <Space direction="vertical" style={{ width: "100%" }} size={12}>
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            当前工作副本 URL
+            {t("当前工作副本 URL")}
           </Text>
           <Input value={currentUrl} readOnly />
         </div>
 
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            合并来源 URL（要合并进来的分支/标签）
+            {t("合并来源 URL（要合并进来的分支/标签）")}
           </Text>
           <Input
             placeholder="https://svn.example.com/repo/branches/feature-x"
@@ -111,10 +112,10 @@ export function MergeDialog({
 
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            修订范围（可选，如 100:200 或 150；留空合并全部未合并修订）
+            {t("修订范围（可选，如 100:200 或 150；留空合并全部未合并修订）")}
           </Text>
           <Input
-            placeholder="留空 = 自动（eligible）"
+            placeholder={t("留空 = 自动（eligible）")}
             value={revRange}
             onChange={(e) => setRevRange(e.target.value)}
           />
@@ -128,9 +129,9 @@ export function MergeDialog({
           <Alert
             type={result.hasConflicts ? "warning" : "success"}
             showIcon
-            message={result.hasConflicts ? "合并完成，存在冲突" : "合并完成"}
+            message={result.hasConflicts ? t("合并完成，存在冲突") : t("合并完成")}
             description={
-              <pre className="merge-output">{result.output || "（无输出）"}</pre>
+              <pre className="merge-output">{result.output || t("（无输出）")}</pre>
             }
           />
         )}
@@ -142,16 +143,16 @@ export function MergeDialog({
           items={[
             {
               key: "auth",
-              label: "认证（可选，留空自动使用钥匙串）",
+              label: t("认证（可选，留空自动使用钥匙串）"),
               children: (
                 <Space direction="vertical" style={{ width: "100%" }}>
                   <Input
-                    placeholder="用户名"
+                    placeholder={t("用户名")}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                   />
                   <Input.Password
-                    placeholder="密码"
+                    placeholder={t("密码")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -162,7 +163,7 @@ export function MergeDialog({
                       onChange={(e) => setRemember(e.target.checked)}
                       style={{ marginRight: 6 }}
                     />
-                    记住到钥匙串
+                    {t("记住到钥匙串")}
                   </label>
                 </Space>
               ),

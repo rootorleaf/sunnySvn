@@ -6,6 +6,7 @@ import { Tabs } from "antd";
 import { useAppStore } from "../stores/appStore";
 import { DiffView } from "./DiffView";
 import { ConsolePanel } from "./ConsolePanel";
+import { t } from "../i18n";
 
 export function BottomPanel() {
   const selectedFile = useAppStore((s) => s.selectedFile);
@@ -23,8 +24,8 @@ export function BottomPanel() {
         onChange={setActive}
         style={{ height: "100%" }}
         items={[
-          { key: "diff", label: "差异", children: <DiffView /> },
-          { key: "console", label: "控制台", children: <ConsolePanel /> },
+          { key: "diff", label: t("差异"), children: <DiffView /> },
+          { key: "console", label: t("控制台"), children: <ConsolePanel /> },
         ]}
       />
     </div>

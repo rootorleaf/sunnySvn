@@ -19,6 +19,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
+import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { TaskDone, TaskLine } from "../types";
 
@@ -60,10 +61,10 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
       setSavedUser(null);
       return;
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       svnApi.getSavedCredential(url).then(setSavedUser).catch(() => setSavedUser(null));
     }, 400);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [url]);
 
   // 进度滚动到底
@@ -92,7 +93,7 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
           handleTaskError(e.payload.error);
         } else {
           setPhase("done");
-          message.success(`Checkout 完成，修订 ${e.payload.revision}`);
+          message.success(t("Checkout 完成，修订 {0}", e.payload.revision ?? "?"));
           // 完成后自动加入工作副本列表
           void addWorkingCopy(e.payload.dest).catch(() => {
             /* 目标已在列表等非致命错误忽略 */
@@ -120,7 +121,7 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
   }
 
   async function pickDest() {
-    const selected = await open({ directory: true, multiple: false, title: "选择存放目录" });
+    const selected = await open({ directory: true, multiple: false, title: t("选择存放目录") });
     if (typeof selected === "string") {
       // 目标 = 所选目录 + 仓库末段名
       const repoName = url.replace(/\/+$/, "").split("/").pop() || "checkout";
@@ -159,7 +160,7 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
 
   return (
     <Modal
-      title="Checkout 仓库"
+      title={t("Checkout 仓库")}
       open={visible}
       onCancel={() => {
         if (phase === "running") {
@@ -170,13 +171,13 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
       footer={
         phase === "running" ? (
           <Button danger onClick={() => void cancel()}>
-            取消 Checkout
+            {t("取消 Checkout")}
           </Button>
         ) : (
           <Space>
-            <Button onClick={onClose}>关闭</Button>
+            <Button onClick={onClose}>{t("关闭")}</Button>
             <Button type="primary" disabled={!canStart} onClick={() => void start(false)}>
-              开始 Checkout
+              {t("开始 Checkout")}
             </Button>
           </Space>
         )
@@ -200,12 +201,12 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
           <Alert
             type="warning"
             showIcon
-            message="服务器证书不受信任"
+            message={t("服务器证书不受信任")}
             description={
               <Space direction="vertical">
                 <Text style={{ fontSize: 12 }}>{error?.message}</Text>
                 <Button size="small" type="primary" onClick={() => void start(true)}>
-                  信任该证书并重试
+                  {t("信任该证书并重试")}
                 </Button>
               </Space>
             }
@@ -213,7 +214,7 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
         )}
 
         <div>
-          <Text strong>仓库 URL</Text>
+          <Text strong>{t("仓库 URL")}</Text>
           <Input
             placeholder="https://svn.example.com/repo/trunk"
             value={url}
@@ -223,13 +224,13 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
           />
           {savedUser && (
             <Text type="secondary" style={{ fontSize: 12 }}>
-              钥匙串已有该服务器的凭据（{savedUser}），留空用户名将自动使用
+              {t("钥匙串已有该服务器的凭据（{0}），留空用户名将自动使用", savedUser)}
             </Text>
           )}
         </div>
 
         <div>
-          <Text strong>目标目录</Text>
+          <Text strong>{t("目标目录")}</Text>
           <Space.Compact style={{ width: "100%", marginTop: 4 }}>
             <Input
               placeholder="/Users/you/projects/repo"
@@ -238,7 +239,7 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
               disabled={phase === "running"}
             />
             <Button icon={<FolderOpenOutlined />} onClick={pickDest} disabled={phase === "running"}>
-              选择…
+              {t("选择…")}
             </Button>
           </Space.Compact>
         </div>
@@ -250,17 +251,17 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
           items={[
             {
               key: "auth",
-              label: "认证（可选）",
+              label: t("认证（可选）"),
               children: (
                 <Space direction="vertical" style={{ width: "100%" }}>
                   <Input
-                    placeholder="用户名"
+                    placeholder={t("用户名")}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     disabled={phase === "running"}
                   />
                   <Input.Password
-                    placeholder="密码"
+                    placeholder={t("密码")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={phase === "running"}
@@ -270,7 +271,7 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
                     onChange={(e) => setRemember(e.target.checked)}
                     disabled={phase === "running"}
                   >
-                    记住到钥匙串
+                    {t("记住到钥匙串")}
                   </Checkbox>
                 </Space>
               ),
@@ -281,7 +282,7 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
         {phase === "running" && (
           <div className="checkout-progress" ref={scrollRef}>
             {lines.length === 0 ? (
-              <Text type="secondary">正在连接仓库…</Text>
+              <Text type="secondary">{t("正在连接仓库…")}</Text>
             ) : (
               lines.map((l, i) => (
                 <div key={i} className="checkout-progress-line">

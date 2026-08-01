@@ -7,6 +7,7 @@ import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
 import * as configApi from "../api/config";
 import { showSvnError } from "../utils/errorDialog";
+import { t } from "../i18n";
 import type { StatusEntry } from "../types";
 
 const { Text } = Typography;
@@ -77,11 +78,11 @@ export function CommitDialog({ open, onClose }: { open: boolean; onClose: () => 
         await svnApi.addFiles(wcPath, toAdd);
       }
       const rev = await svnApi.commitFiles(wcPath, paths, msg.trim());
-      message.success(`提交成功，修订 ${rev}`);
+      message.success(t("提交成功，修订 {0}", rev));
       await refreshStatus();
       onClose();
     } catch (e) {
-      showSvnError(e, "提交失败");
+      showSvnError(e, t("提交失败"));
       // add 成功但 commit 失败时文件保持已添加状态，刷新让用户看到真实状态
       await refreshStatus();
     } finally {
@@ -91,12 +92,12 @@ export function CommitDialog({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <Modal
-      title="提交"
+      title={t("提交")}
       open={open}
       onCancel={onClose}
       onOk={handleOk}
-      okText="提交"
-      cancelText="取消"
+      okText={t("提交")}
+      cancelText={t("取消")}
       okButtonProps={{ disabled: checked.size === 0 || !msg.trim(), loading: submitting }}
       width={640}
       destroyOnClose
@@ -113,7 +114,7 @@ export function CommitDialog({ open, onClose }: { open: boolean; onClose: () => 
                 )
               }
             >
-              全选（{checked.size}/{candidates.length}）
+              {t("全选（{0}/{1}）", checked.size, candidates.length)}
             </Checkbox>
           </div>
           <div className="commit-file-scroll">
@@ -131,7 +132,7 @@ export function CommitDialog({ open, onClose }: { open: boolean; onClose: () => 
                     <Text style={{ fontSize: 12 }}>{entry.path}</Text>
                     {entry.itemStatus === "unversioned" && (
                       <Text type="secondary" style={{ fontSize: 12, marginLeft: 6 }}>
-                        （将先加入版本控制）
+                        {t("（将先加入版本控制）")}
                       </Text>
                     )}
                   </Checkbox>
@@ -140,7 +141,7 @@ export function CommitDialog({ open, onClose }: { open: boolean; onClose: () => 
             })}
             {candidates.length === 0 && (
               <Text type="secondary" style={{ padding: 12, display: "block" }}>
-                没有可提交的改动
+                {t("没有可提交的改动")}
               </Text>
             )}
           </div>
@@ -148,7 +149,7 @@ export function CommitDialog({ open, onClose }: { open: boolean; onClose: () => 
 
         {recent.length > 0 && (
           <Select<string>
-            placeholder="复用历史提交信息…"
+            placeholder={t("复用历史提交信息…")}
             style={{ width: "100%" }}
             value={undefined}
             onSelect={(v) => setMsg(v)}
@@ -157,7 +158,7 @@ export function CommitDialog({ open, onClose }: { open: boolean; onClose: () => 
         )}
         <Input.TextArea
           rows={4}
-          placeholder="提交信息（必填）"
+          placeholder={t("提交信息（必填）")}
           value={msg}
           onChange={(e) => setMsg(e.target.value)}
         />

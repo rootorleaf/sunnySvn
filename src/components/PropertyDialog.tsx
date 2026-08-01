@@ -15,6 +15,7 @@ import {
 } from "antd";
 import { DeleteOutlined } from "@ant-design/icons";
 import * as svnApi from "../api/svn";
+import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { SvnProperty } from "../types";
 
@@ -52,11 +53,11 @@ export function PropertyDialog({
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(
-    async (t: string) => {
+    async (tgt: string) => {
       setLoading(true);
       setError(null);
       try {
-        const list = await svnApi.getProplist(wcPath, t || ".");
+        const list = await svnApi.getProplist(wcPath, tgt || ".");
         setProps(list);
       } catch (e) {
         setError(e as SvnError);
@@ -85,13 +86,13 @@ export function PropertyDialog({
   async function save() {
     const name = editName.trim();
     if (!name) {
-      message.warning("请填写属性名");
+      message.warning(t("请填写属性名"));
       return;
     }
     setSaving(true);
     try {
       await svnApi.setProperty(wcPath, target || ".", name, editValue);
-      message.success(`已设置 ${name}（需 commit 后生效）`);
+      message.success(t("已设置 {0}（需 commit 后生效）", name));
       setEditName("");
       setEditValue("");
       await load(target);
@@ -104,16 +105,16 @@ export function PropertyDialog({
 
   async function remove(p: SvnProperty) {
     Modal.confirm({
-      title: "删除属性？",
-      content: `将删除 ${p.name}（需 commit 后生效）。`,
-      okText: "删除",
+      title: t("删除属性？"),
+      content: t("将删除 {0}（需 commit 后生效）。", p.name),
+      okText: t("删除"),
       okButtonProps: { danger: true },
-      cancelText: "取消",
+      cancelText: t("取消"),
       async onOk() {
         try {
           // 值传空字符串 → 后端走 propdel
           await svnApi.setProperty(wcPath, target || ".", p.name, "");
-          message.success(`已删除 ${p.name}`);
+          message.success(t("已删除 {0}", p.name));
           await load(target);
         } catch (e) {
           showError(e as SvnError);
@@ -128,17 +129,17 @@ export function PropertyDialog({
 
   return (
     <Modal
-      title="属性编辑"
+      title={t("属性编辑")}
       open={open}
       onCancel={onClose}
-      footer={<Button onClick={onClose}>关闭</Button>}
+      footer={<Button onClick={onClose}>{t("关闭")}</Button>}
       width={680}
       destroyOnClose
     >
       <Space direction="vertical" style={{ width: "100%" }} size={12}>
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            目标路径（相对工作副本根，"." 表示根目录）
+            {t("目标路径（相对工作副本根，\".\" 表示根目录）")}
           </Text>
           <Space.Compact style={{ width: "100%" }}>
             <Input
@@ -148,7 +149,7 @@ export function PropertyDialog({
               placeholder="."
             />
             <Button loading={loading} onClick={() => void load(target)}>
-              读取
+              {t("读取")}
             </Button>
           </Space.Compact>
         </div>
@@ -159,14 +160,14 @@ export function PropertyDialog({
 
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            已有属性（点击载入到下方编辑）
+            {t("已有属性（点击载入到下方编辑）")}
           </Text>
           <List
             size="small"
             bordered
             style={{ maxHeight: 180, overflow: "auto" }}
             dataSource={props}
-            locale={{ emptyText: "该路径暂无属性" }}
+            locale={{ emptyText: t("该路径暂无属性") }}
             renderItem={(p) => (
               <List.Item
                 style={{ cursor: "pointer" }}
@@ -194,7 +195,7 @@ export function PropertyDialog({
                       type="secondary"
                       style={{ fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-all" }}
                     >
-                      {p.value || "（空值）"}
+                      {p.value || t("（空值）")}
                     </Text>
                   </div>
                 </div>
@@ -205,7 +206,7 @@ export function PropertyDialog({
 
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            新增 / 修改属性
+            {t("新增 / 修改属性")}
           </Text>
           <Space direction="vertical" style={{ width: "100%" }} size={8}>
             <AutoComplete
@@ -213,7 +214,7 @@ export function PropertyDialog({
               value={editName}
               onChange={(v) => setEditName(v)}
               options={COMMON_PROPS.map((p) => ({ value: p }))}
-              placeholder="属性名，如 svn:ignore"
+              placeholder={t("属性名，如 svn:ignore")}
               filterOption={(input, option) =>
                 (option?.value ?? "").toLowerCase().includes(input.toLowerCase())
               }
@@ -222,14 +223,14 @@ export function PropertyDialog({
               rows={4}
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
-              placeholder="属性值（svn:ignore 每行一个模式）"
+              placeholder={t("属性值（svn:ignore 每行一个模式）")}
             />
             <Space>
               <Button type="primary" loading={saving} onClick={() => void save()}>
-                保存属性
+                {t("保存属性")}
               </Button>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                属性改动为本地修改，需在提交后生效
+                {t("属性改动为本地修改，需在提交后生效")}
               </Text>
             </Space>
           </Space>

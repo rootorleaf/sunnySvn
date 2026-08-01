@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Collapse, Input, Modal, Radio, Space, Typography, message } from "antd";
 import * as svnApi from "../api/svn";
+import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { AuthInput } from "../types";
 
@@ -52,7 +53,7 @@ export function BranchDialog({
 
   async function handleOk() {
     if (!srcUrl || !dstUrl) {
-      message.warning("请填写名称");
+      message.warning(t("请填写名称"));
       return;
     }
     setLoading(true);
@@ -63,9 +64,10 @@ export function BranchDialog({
         password: password || undefined,
         remember: remember && !!username && !!password,
       };
-      const finalMsg = msg.trim() || `创建${kind === "branch" ? "分支" : "标签"} ${name}`;
+      const finalMsg =
+        msg.trim() || t(kind === "branch" ? "创建分支 {0}" : "创建标签 {0}", name);
       const rev = await svnApi.createBranch(srcUrl, dstUrl, finalMsg, auth);
-      message.success(`已创建，修订 ${rev}`);
+      message.success(t("已创建，修订 {0}", rev));
       onClose();
     } catch (e) {
       const err = e as SvnError;
@@ -78,34 +80,34 @@ export function BranchDialog({
 
   return (
     <Modal
-      title="创建分支 / 标签"
+      title={t("创建分支 / 标签")}
       open={open}
       onCancel={onClose}
       onOk={handleOk}
-      okText="创建"
+      okText={t("创建")}
       confirmLoading={loading}
       width={640}
       destroyOnClose
     >
       <Space direction="vertical" style={{ width: "100%" }} size={12}>
         <Radio.Group value={kind} onChange={(e) => setKind(e.target.value)}>
-          <Radio.Button value="branch">分支 (branches)</Radio.Button>
-          <Radio.Button value="tag">标签 (tags)</Radio.Button>
+          <Radio.Button value="branch">{t("分支 (branches)")}</Radio.Button>
+          <Radio.Button value="tag">{t("标签 (tags)")}</Radio.Button>
         </Radio.Group>
 
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            源 URL（工作副本当前位置）
+            {t("源 URL（工作副本当前位置）")}
           </Text>
           <Input value={srcUrl} onChange={(e) => setSrcUrl(e.target.value)} />
         </div>
 
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {kind === "branch" ? "分支" : "标签"}名称
+            {t(kind === "branch" ? "分支名称" : "标签名称")}
           </Text>
           <Input
-            placeholder={kind === "branch" ? "如 feature-x" : "如 v1.0.0"}
+            placeholder={kind === "branch" ? t("如 feature-x") : t("如 v1.0.0")}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -115,18 +117,18 @@ export function BranchDialog({
           <Alert
             type="info"
             message={
-              <Text style={{ fontSize: 12, wordBreak: "break-all" }}>目标：{dstUrl}</Text>
+              <Text style={{ fontSize: 12, wordBreak: "break-all" }}>{t("目标：{0}", dstUrl)}</Text>
             }
           />
         )}
 
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            提交信息
+            {t("提交信息")}
           </Text>
           <Input.TextArea
             rows={2}
-            placeholder="留空则用默认信息"
+            placeholder={t("留空则用默认信息")}
             value={msg}
             onChange={(e) => setMsg(e.target.value)}
           />
@@ -143,16 +145,16 @@ export function BranchDialog({
           items={[
             {
               key: "auth",
-              label: "认证（可选，留空自动使用钥匙串）",
+              label: t("认证（可选，留空自动使用钥匙串）"),
               children: (
                 <Space direction="vertical" style={{ width: "100%" }}>
                   <Input
-                    placeholder="用户名"
+                    placeholder={t("用户名")}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                   />
                   <Input.Password
-                    placeholder="密码"
+                    placeholder={t("密码")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -163,7 +165,7 @@ export function BranchDialog({
                       onChange={(e) => setRemember(e.target.checked)}
                       style={{ marginRight: 6 }}
                     />
-                    记住到钥匙串
+                    {t("记住到钥匙串")}
                   </label>
                 </Space>
               ),

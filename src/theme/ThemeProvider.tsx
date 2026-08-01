@@ -1,5 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ConfigProvider, theme as antdTheme } from "antd";
+import zhCN from "antd/locale/zh_CN";
+import enUS from "antd/locale/en_US";
+import { useI18n } from "../i18n";
 
 export type ThemeMode = "system" | "light" | "dark";
 export type FontScale = "small" | "medium" | "large";
@@ -64,6 +67,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(readStoredMode);
   const [fontScale, setFontScaleState] = useState<FontScale>(readStoredFont);
   const [systemDark, setSystemDark] = useState(systemPrefersDark);
+  const { locale } = useI18n();
 
   // 监听系统外观变化（仅 mode === system 时影响 isDark）
   useEffect(() => {
@@ -105,6 +109,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return (
     <ThemeContext.Provider value={value}>
       <ConfigProvider
+        locale={locale === "zh" ? zhCN : enUS}
         theme={{
           algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
           token: { fontSize: FONT_PX[fontScale], borderRadius: 4 },

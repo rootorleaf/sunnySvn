@@ -2,6 +2,7 @@
 // 未识别的 code 落到通用标题，message 原样展示。
 
 import { Modal } from "antd";
+import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 
 const TITLES: Record<string, string> = {
@@ -25,9 +26,10 @@ const TITLES: Record<string, string> = {
 };
 
 /** 弹出统一的 svn 错误对话框。 */
-export function showSvnError(e: unknown, fallbackTitle = "操作失败") {
+export function showSvnError(e: unknown, fallbackTitle?: string) {
   const err = e as Partial<SvnError>;
-  const title = (err.code && TITLES[err.code]) || fallbackTitle;
+  const mapped = err.code ? TITLES[err.code] : undefined;
+  const title = mapped ? t(mapped) : fallbackTitle ?? t("操作失败");
   const content = err.message ?? String(e);
   Modal.error({ title, content, width: 520 });
 }

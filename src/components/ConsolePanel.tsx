@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { Button, Empty } from "antd";
 import { ClearOutlined } from "@ant-design/icons";
 import { useConsoleStore } from "../stores/consoleStore";
+import { t } from "../i18n";
 
 export function ConsolePanel() {
   const lines = useConsoleStore((s) => s.lines);
@@ -20,13 +21,13 @@ export function ConsolePanel() {
     <div className="console-wrap">
       <div className="console-toolbar">
         <Button size="small" type="text" icon={<ClearOutlined />} onClick={clear}>
-          清空
+          {t("清空")}
         </Button>
       </div>
       <div ref={scrollRef} className="console-scroll">
         {lines.length === 0 ? (
           <div className="panel-center">
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚无命令输出" />
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("尚无命令输出")} />
           </div>
         ) : (
           lines.map((l, i) => (

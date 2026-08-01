@@ -19,6 +19,7 @@ import type { ColumnsType } from "antd/es/table";
 import { FolderOutlined, FileOutlined, ReloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import * as svnApi from "../api/svn";
+import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { RepoEntry } from "../types";
 
@@ -81,7 +82,7 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
       if (resolved) {
         target = resolved.replace(/\/+$/, "");
         setRootUrl(target);
-        message.info("已识别为工作副本，自动切换到其仓库地址");
+        message.info(t("已识别为工作副本，自动切换到其仓库地址"));
       }
     } catch (e) {
       setError(e as SvnError);
@@ -107,7 +108,7 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
 
   const columns: ColumnsType<RepoEntry> = [
     {
-      title: "名称",
+      title: t("名称"),
       dataIndex: "name",
       ellipsis: true,
       render: (name: string, row) =>
@@ -123,16 +124,16 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
           </span>
         ),
     },
-    { title: "修订", dataIndex: "revision", width: 70, align: "right" },
-    { title: "作者", dataIndex: "author", width: 110, ellipsis: true },
+    { title: t("修订"), dataIndex: "revision", width: 70, align: "right" },
+    { title: t("作者"), dataIndex: "author", width: 110, ellipsis: true },
     {
-      title: "日期",
+      title: t("日期"),
       dataIndex: "date",
       width: 140,
       render: (d: string) => (d ? dayjs(d).format("YYYY-MM-DD HH:mm") : "—"),
     },
     {
-      title: "大小",
+      title: t("大小"),
       dataIndex: "size",
       width: 90,
       align: "right",
@@ -142,17 +143,17 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
 
   return (
     <Modal
-      title="仓库浏览器"
+      title={t("仓库浏览器")}
       open={open}
       onCancel={onClose}
-      footer={<Button onClick={onClose}>关闭</Button>}
+      footer={<Button onClick={onClose}>{t("关闭")}</Button>}
       width={800}
       destroyOnClose
     >
       <Space direction="vertical" style={{ width: "100%" }} size={12}>
         <Space.Compact style={{ width: "100%" }}>
           <Input
-            placeholder="仓库 URL，或本地工作副本路径（自动解析）"
+            placeholder={t("仓库 URL，或本地工作副本路径（自动解析）")}
             value={rootUrl}
             onChange={(e) => setRootUrl(e.target.value)}
             onPressEnter={() => void enterRoot()}
@@ -164,7 +165,7 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
             disabled={!rootUrl.trim()}
             onClick={() => void enterRoot()}
           >
-            浏览
+            {t("浏览")}
           </Button>
         </Space.Compact>
 
@@ -175,12 +176,12 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
           <Alert
             type="warning"
             showIcon
-            message="服务器证书不受信任"
+            message={t("服务器证书不受信任")}
             description={
               <Space direction="vertical">
                 <Text style={{ fontSize: 12 }}>{error?.message}</Text>
                 <Button size="small" type="primary" onClick={() => void browse(currentUrl, true)}>
-                  信任该证书并重试
+                  {t("信任该证书并重试")}
                 </Button>
               </Space>
             }
@@ -194,21 +195,21 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
           items={[
             {
               key: "auth",
-              label: "认证（可选，留空自动使用钥匙串）",
+              label: t("认证（可选，留空自动使用钥匙串）"),
               children: (
                 <Space direction="vertical" style={{ width: "100%" }}>
                   <Input
-                    placeholder="用户名"
+                    placeholder={t("用户名")}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                   />
                   <Input.Password
-                    placeholder="密码"
+                    placeholder={t("密码")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
                   <Checkbox checked={remember} onChange={(e) => setRemember(e.target.checked)}>
-                    记住到钥匙串
+                    {t("记住到钥匙串")}
                   </Checkbox>
                 </Space>
               ),
@@ -221,7 +222,7 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
             <Breadcrumb
               items={[
                 {
-                  title: <a onClick={() => jumpTo(-1)}>根目录</a>,
+                  title: <a onClick={() => jumpTo(-1)}>{t("根目录")}</a>,
                 },
                 ...segments.map((seg, i) => ({
                   title:
@@ -241,7 +242,7 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
               loading={loading}
               pagination={false}
               scroll={{ y: 360 }}
-              locale={{ emptyText: "空目录" }}
+              locale={{ emptyText: t("空目录") }}
             />
           </>
         )}

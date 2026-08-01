@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
 import { showSvnError } from "../utils/errorDialog";
+import { t } from "../i18n";
 import type { LogEntry } from "../types";
 
 const { Text } = Typography;
@@ -39,7 +40,7 @@ export function LogModal({ open, onClose }: { open: boolean; onClose: () => void
         const last = page[page.length - 1];
         setHasMore(page.length === PAGE_SIZE && (last?.revision ?? 1) > 1);
       } catch (e) {
-        showSvnError(e, "读取日志失败");
+        showSvnError(e, t("读取日志失败"));
       } finally {
         setLoading(false);
       }
@@ -64,35 +65,35 @@ export function LogModal({ open, onClose }: { open: boolean; onClose: () => void
 
   const columns: ColumnsType<LogEntry> = [
     {
-      title: "修订",
+      title: t("修订"),
       dataIndex: "revision",
       width: 80,
       render: (r: number) => <Text code>r{r}</Text>,
     },
-    { title: "作者", dataIndex: "author", width: 120, ellipsis: true },
+    { title: t("作者"), dataIndex: "author", width: 120, ellipsis: true },
     {
-      title: "日期",
+      title: t("日期"),
       dataIndex: "date",
       width: 150,
       render: (d: string) => (d ? dayjs(d).format("YYYY-MM-DD HH:mm") : "—"),
     },
-    { title: "提交信息", dataIndex: "message", ellipsis: true },
+    { title: t("提交信息"), dataIndex: "message", ellipsis: true },
   ];
 
   return (
     <Modal
-      title="提交日志"
+      title={t("提交日志")}
       open={open}
       onCancel={onClose}
       footer={
         <Space>
           {hasMore && (
             <Button onClick={loadMore} loading={loading}>
-              加载更多
+              {t("加载更多")}
             </Button>
           )}
           <Button type="primary" onClick={onClose}>
-            关闭
+            {t("关闭")}
           </Button>
         </Space>
       }
@@ -111,7 +112,7 @@ export function LogModal({ open, onClose }: { open: boolean; onClose: () => void
           expandedRowRender: (record) => (
             <div className="log-paths">
               {record.changedPaths.length === 0 ? (
-                <Text type="secondary">无变更路径信息</Text>
+                <Text type="secondary">{t("无变更路径信息")}</Text>
               ) : (
                 record.changedPaths.map((p) => (
                   <div key={`${p.action}:${p.path}`} className="log-path-row">

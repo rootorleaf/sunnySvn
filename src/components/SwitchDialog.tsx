@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Alert, Collapse, Input, List, Modal, Space, Tag, Typography, message } from "antd";
 import { BranchesOutlined } from "@ant-design/icons";
 import * as svnApi from "../api/svn";
+import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { AuthInput, RepoEntry } from "../types";
 
@@ -63,7 +64,7 @@ export function SwitchDialog({
 
   async function doSwitch(url: string) {
     if (!url) {
-      message.warning("请选择或填写目标 URL");
+      message.warning(t("请选择或填写目标 URL"));
       return;
     }
     setLoading(true);
@@ -75,7 +76,7 @@ export function SwitchDialog({
         remember: remember && !!username && !!password,
       };
       const rev = await svnApi.switchWc(wcPath, url, auth);
-      message.success(`已切换到 ${url}，修订 ${rev}`);
+      message.success(t("已切换到 {0}，修订 {1}", url, rev));
       onSwitched();
       onClose();
     } catch (e) {
@@ -89,11 +90,11 @@ export function SwitchDialog({
 
   return (
     <Modal
-      title="切换分支 / 标签"
+      title={t("切换分支 / 标签")}
       open={open}
       onCancel={onClose}
       onOk={() => void doSwitch(target)}
-      okText="切换"
+      okText={t("切换")}
       confirmLoading={loading}
       width={640}
       destroyOnClose
@@ -101,17 +102,17 @@ export function SwitchDialog({
       <Space direction="vertical" style={{ width: "100%" }} size={12}>
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            当前 URL
+            {t("当前 URL")}
           </Text>
           <Input value={currentUrl} readOnly />
         </div>
 
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            目标 URL
+            {t("目标 URL")}
           </Text>
           <Input
-            placeholder="选择下方候选，或手动填写"
+            placeholder={t("选择下方候选，或手动填写")}
             value={target}
             onChange={(e) => setTarget(e.target.value)}
           />
@@ -131,7 +132,7 @@ export function SwitchDialog({
               >
                 <BranchesOutlined style={{ marginRight: 8, color: "var(--icon)" }} />
                 <Text style={{ flex: 1 }}>{c.label}</Text>
-                {currentUrl.replace(/\/+$/, "") === c.url && <Tag color="blue">当前</Tag>}
+                {currentUrl.replace(/\/+$/, "") === c.url && <Tag color="blue">{t("当前")}</Tag>}
               </List.Item>
             )}
           />
@@ -148,16 +149,16 @@ export function SwitchDialog({
           items={[
             {
               key: "auth",
-              label: "认证（可选，留空自动使用钥匙串）",
+              label: t("认证（可选，留空自动使用钥匙串）"),
               children: (
                 <Space direction="vertical" style={{ width: "100%" }}>
                   <Input
-                    placeholder="用户名"
+                    placeholder={t("用户名")}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                   />
                   <Input.Password
-                    placeholder="密码"
+                    placeholder={t("密码")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -168,7 +169,7 @@ export function SwitchDialog({
                       onChange={(e) => setRemember(e.target.checked)}
                       style={{ marginRight: 6 }}
                     />
-                    记住到钥匙串
+                    {t("记住到钥匙串")}
                   </label>
                 </Space>
               ),

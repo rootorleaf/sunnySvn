@@ -7,6 +7,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useAppStore } from "../stores/appStore";
 import { BlameModal } from "./BlameModal";
 import { fileMenuItems, useFileActions } from "./fileActions";
+import { t } from "../i18n";
 import type { StatusEntry, StatusKind } from "../types";
 
 /** 状态码 → 显示标签（字符 + 颜色 + 含义），参考 SmartSVN / TortoiseSVN 约定。 */
@@ -29,7 +30,7 @@ function StatusTag({ kind }: { kind: StatusKind }) {
   const meta = STATUS_META[kind];
   if (!meta.label) return <span style={{ color: "var(--text-secondary)" }}>—</span>;
   return (
-    <Tag color={meta.color} style={{ fontFamily: "monospace", marginInlineEnd: 0 }} title={meta.text}>
+    <Tag color={meta.color} style={{ fontFamily: "monospace", marginInlineEnd: 0 }} title={t(meta.text)}>
       {meta.label}
     </Tag>
   );
@@ -99,7 +100,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
   const columns = useMemo<ColumnsType<StatusEntry>>(
     () => [
       {
-        title: "状态",
+        title: t("状态"),
         dataIndex: "itemStatus",
         width: 64,
         align: "center",
@@ -107,7 +108,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
         sorter: (a, b) => a.itemStatus.localeCompare(b.itemStatus),
       },
       {
-        title: "路径",
+        title: t("路径"),
         dataIndex: "path",
         width: pathWidth,
         ellipsis: true,
@@ -116,7 +117,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
             {path}
             {row.propStatus === "modified" && (
               <Tag color="cyan" style={{ marginLeft: 6 }}>
-                属性
+                {t("属性")}
               </Tag>
             )}
           </span>
@@ -125,7 +126,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
         defaultSortOrder: "ascend",
       },
       {
-        title: "修订",
+        title: t("修订"),
         dataIndex: "revision",
         width: 80,
         align: "right",
@@ -140,7 +141,7 @@ export function FileStatusTable({ entries }: { entries: StatusEntry[] }) {
   if (entries.length === 0) {
     return (
       <div style={{ display: "flex", justifyContent: "center", paddingTop: 48 }}>
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有改动，工作副本是干净的" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("没有改动，工作副本是干净的")} />
       </div>
     );
   }

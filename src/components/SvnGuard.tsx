@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Result, Spin, Typography, Button } from "antd";
 import { useAppStore } from "../stores/appStore";
+import { t } from "../i18n";
 
 const { Paragraph, Text } = Typography;
 
@@ -19,7 +20,7 @@ export function SvnGuard({ children }: { children: ReactNode }) {
   if (detecting) {
     return (
       <div style={{ height: "100vh", display: "grid", placeItems: "center" }}>
-        <Spin tip="正在检测 svn 环境…" size="large" />
+        <Spin tip={t("正在检测 svn 环境…")} size="large" />
       </div>
     );
   }
@@ -29,12 +30,12 @@ export function SvnGuard({ children }: { children: ReactNode }) {
       <div style={{ height: "100vh", display: "grid", placeItems: "center" }}>
         <Result
           status="warning"
-          title="未找到可用的 svn"
-          subTitle={svnError?.message ?? "请先安装 Subversion 命令行工具"}
+          title={t("未找到可用的 svn")}
+          subTitle={svnError?.message ?? t("请先安装 Subversion 命令行工具")}
           extra={[
             <div key="tip" style={{ textAlign: "left", maxWidth: 460 }}>
               <Paragraph>
-                SunnySVN 依赖系统的 <Text code>svn</Text> 命令行。可通过 Homebrew 安装：
+                {t("SunnySVN 依赖系统的 svn 命令行。可通过 Homebrew 安装：")}
               </Paragraph>
               <Paragraph>
                 <Text code copyable>
@@ -42,7 +43,7 @@ export function SvnGuard({ children }: { children: ReactNode }) {
                 </Text>
               </Paragraph>
               <Button type="primary" onClick={() => void detectSvn()}>
-                重新检测
+                {t("重新检测")}
               </Button>
             </div>,
           ]}

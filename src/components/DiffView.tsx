@@ -8,6 +8,7 @@ import { EditorView, lineNumbers } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
+import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { FileDiff } from "../types";
 
@@ -76,7 +77,7 @@ export function DiffView() {
   if (!selectedFile) {
     return (
       <div className="panel-center">
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="点击上方文件查看差异" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("点击上方文件查看差异")} />
       </div>
     );
   }
@@ -98,7 +99,7 @@ export function DiffView() {
         type={infoTitle ? "info" : "error"}
         showIcon
         style={{ margin: 12 }}
-        message={infoTitle ?? "读取差异失败"}
+        message={infoTitle ? t(infoTitle) : t("读取差异失败")}
         description={error.message}
       />
     );
@@ -108,7 +109,7 @@ export function DiffView() {
       <div className="diff-header">
         <span className="diff-side">BASE</span>
         <span className="diff-file">{selectedFile.path}</span>
-        <span className="diff-side">工作区</span>
+        <span className="diff-side">{t("工作区")}</span>
       </div>
       <div ref={containerRef} className="diff-container" />
     </div>
