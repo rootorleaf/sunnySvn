@@ -16,11 +16,14 @@ pub fn run() {
         .setup(|app| {
             // 控制台事件需要 AppHandle 才能向前端推送
             events::set_app_handle(app.handle().clone());
+            // 启动时把保存的 svn 路径覆盖灌进 locator
+            config_cmd::load_svn_override_on_startup();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             svn_cmd::detect_svn,
             svn_cmd::get_status,
+            svn_cmd::get_status_count,
             svn_cmd::get_info,
             svn_cmd::is_working_copy,
             svn_cmd::update_working_copy,
@@ -34,6 +37,8 @@ pub fn run() {
             config_cmd::add_working_copy,
             config_cmd::remove_working_copy,
             config_cmd::list_recent_messages,
+            config_cmd::get_svn_path_override,
+            config_cmd::set_svn_path_override,
             system_cmd::reveal_in_finder,
             system_cmd::watch_working_copy,
             system_cmd::unwatch_working_copy,

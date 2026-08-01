@@ -17,6 +17,12 @@ pub async fn get_status(path: String) -> Result<Vec<StatusEntry>, SvnError> {
     svn::status(&path).await
 }
 
+/// 轻量获取工作副本改动文件数（侧栏角标用，不解析完整 XML）。
+#[tauri::command]
+pub async fn get_status_count(path: String) -> Result<usize, SvnError> {
+    svn::status_count(&path).await
+}
+
 /// 读取工作副本信息。
 #[tauri::command]
 pub async fn get_info(path: String) -> Result<WorkingCopyInfo, SvnError> {

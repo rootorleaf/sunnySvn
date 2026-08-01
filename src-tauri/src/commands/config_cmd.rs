@@ -26,6 +26,9 @@ struct AppConfig {
     /// 最近使用的提交信息（新的在前，去重，最多 20 条）
     #[serde(default)]
     recent_messages: Vec<String>,
+    /// 用户手动指定的 svn 二进制路径（覆盖自动探测）。空表示用自动探测结果。
+    #[serde(default)]
+    svn_path: String,
 }
 
 /// 进程内配置缓存，避免每次命令都读盘；写操作同步落盘。
@@ -170,4 +173,29 @@ pub fn remember_message(message: &str) {
 #[tauri::command]
 pub fn list_recent_messages() -> Result<Vec<String>, SvnError> {
     with_config(|cfg| cfg.recent_messages.clone())
+}
+
+/// 读取用户覆盖的 svn 路径（空字符串 = 用自动探测结果）。
+#[tauri::command]
+pub fn get_svn_path_override() -> Result<String, SvnError> {
+    with_config(|cfg| cfg.svn_path.clone())
+}
+
+/// 设置 svn 路径覆盖；空字符串清除覆盖，恢复自动探测。
+#[tauri::command]
+pub fn set_svn_path_override(path: String) -> Result<String, SvnError> {
+    let trimmed = path.trim().to_string();
+    with_config(|cfg| cfg.svn_path = trimmed.clone())?;
+    with_config(|cfg| save_to_disk(cfg))??;
+    // 同步到 locator 并清除其缓存，使下次命令用新路径
+    crate::svn::locator::set_override(&trimmed);
+    Ok(trimmed)
+}
+
+/// 应用启动时把 config 里保存的 svn 覆盖路径灌进 locator。
+/// 在 tauri setup 调用一次。
+pub fn load_svn_override_on_startup() {
+    if let Ok(path) = with_config(|cfg| cfg.svn_path.clone()) {
+        crate::svn::locator::set_override(&path);
+    }
 }

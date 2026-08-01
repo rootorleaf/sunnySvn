@@ -85,6 +85,14 @@ pub async fn status(path: &str) -> Result<Vec<StatusEntry>, SvnError> {
     parse_status(&out.stdout)
 }
 
+/// 轻量获取改动文件数：`svn status -q`（只输出有改动的项，纯文本）。
+/// 供侧栏角标用，比解析完整 XML 快。
+pub async fn status_count(path: &str) -> Result<usize, SvnError> {
+    let out = runner::query_in(path, &["status", "--quiet"]).await?;
+    // 每个有改动的文件/目录一行；空行不计
+    Ok(out.stdout.lines().filter(|l| !l.trim().is_empty()).count())
+}
+
 /// 读取工作副本信息：`svn info --xml`。
 pub async fn info(path: &str) -> Result<WorkingCopyInfo, SvnError> {
     let out = runner::query_in(path, &["info", "--xml"]).await?;

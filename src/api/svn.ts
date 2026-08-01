@@ -44,6 +44,11 @@ export function getStatus(path: string): Promise<StatusEntry[]> {
   return call<StatusEntry[]>("get_status", { path });
 }
 
+/** 轻量获取工作副本改动文件数（侧栏角标用） */
+export function getStatusCount(path: string): Promise<number> {
+  return call<number>("get_status_count", { path });
+}
+
 /** 读取工作副本基本信息（URL / 修订号等） */
 export function getInfo(path: string): Promise<WorkingCopyInfo> {
   return call<WorkingCopyInfo>("get_info", { path });
@@ -232,4 +237,15 @@ export function getRevDiff(
   rev2: number,
 ): Promise<string> {
   return call<string>("get_rev_diff", { path, file, rev1, rev2 });
+}
+
+
+/** 读取用户覆盖的 svn 路径（空字符串 = 用自动探测结果） */
+export function getSvnPathOverride(): Promise<string> {
+  return call<string>("get_svn_path_override");
+}
+
+/** 设置 svn 路径覆盖；空字符串清除覆盖，恢复自动探测 */
+export function setSvnPathOverride(path: string): Promise<string> {
+  return call<string>("set_svn_path_override", { path });
 }

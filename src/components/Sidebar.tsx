@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Button, Dropdown, List, Modal, Space, Typography, Popconfirm, message } from "antd";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Badge, Button, Dropdown, List, Modal, Space, Typography, Popconfirm, message } from "antd";
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -7,6 +7,7 @@ import {
   FolderOpenOutlined,
   CloudDownloadOutlined,
   GlobalOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -16,6 +17,7 @@ import { showSvnError } from "../utils/errorDialog";
 import { CheckoutDialog } from "./CheckoutDialog";
 import { RepoBrowser } from "./RepoBrowser";
 import { ThemeToggle } from "./ThemeToggle";
+import { SettingsDialog } from "./SettingsDialog";
 import type { SvnError } from "../api/svn";
 import type { WorkingCopy } from "../types";
 
@@ -25,6 +27,7 @@ const { Text } = Typography;
 // 后端会校验所选目录是否为有效 svn 工作副本。
 // 每项支持右键菜单：在 Finder 中显示 / 从列表移除。
 // 支持从 Finder 拖动目录到侧栏区域直接添加为工作副本。
+// 底部有设置入口。
 export function Sidebar() {
   const workingCopies = useAppStore((s) => s.workingCopies);
   const selectedId = useAppStore((s) => s.selectedId);
@@ -34,8 +37,46 @@ export function Sidebar() {
   const [adding, setAdding] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [browserOpen, setBrowserOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  // 各工作副本的改动文件数（id → count），侧栏角标用
+  const [counts, setCounts] = useState<Record<string, number>>({});
+
+  // 工作副本列表变化时，异步获取每个的改动数
+  useEffect(() => {
+    let stale = false;
+    const nextCounts: Record<string, number> = {};
+    void Promise.all(
+      workingCopies.map(async (wc) => {
+        try {
+          const c = await svnApi.getStatusCount(wc.path);
+          nextCounts[wc.id] = c;
+        } catch {
+          nextCounts[wc.id] = 0;
+        }
+      }),
+    ).then(() => {
+      if (!stale) setCounts(nextCounts);
+    });
+    return () => {
+      stale = true;
+    };
+  }, [workingCopies]);
+
+  /** 刷新单个工作副本的改动计数（操作后可调） */
+  const refreshCount = useCallback((id: string, path: string) => {
+    svnApi
+      .getStatusCount(path)
+      .then((c) => setCounts((prev) => ({ ...prev, [id]: c })))
+      .catch(() => {});
+  }, []);
+  // 选中工作副本切换时，刷新其计数（操作可能改变了改动数）
+  useEffect(() => {
+    if (!selectedId) return;
+    const wc = workingCopies.find((w) => w.id === selectedId);
+    if (wc) refreshCount(wc.id, wc.path);
+  }, [selectedId, workingCopies, refreshCount]);
 
   // 批量添加拖入/选择的目录，逐个校验并反馈。
   async function addPaths(paths: string[]) {
@@ -180,6 +221,9 @@ export function Sidebar() {
               style={{ padding: "8px 16px", cursor: "pointer" }}
               onClick={() => selectWorkingCopy(wc.id)}
               actions={[
+                (counts[wc.id] ?? 0) > 0 ? (
+                  <Badge key="count" count={counts[wc.id]} style={{ backgroundColor: "#fa8c16" }} />
+                ) : null,
                 <Popconfirm
                   key="del"
                   title="从列表移除？"
@@ -212,6 +256,24 @@ export function Sidebar() {
           </Dropdown>
         )}
       />
+      {/* 底部：设置入口 */}
+      <div
+        style={{
+          padding: "8px 16px",
+          borderTop: "1px solid var(--border)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+        }}
+      >
+        <Button
+          size="small"
+          type="text"
+          icon={<SettingOutlined />}
+          onClick={() => setSettingsOpen(true)}
+          title="设置"
+        />
+      </div>
       {dragOver && (
         <div className="sidebar-drop-hint">
           <FolderOpenOutlined style={{ fontSize: 28, marginBottom: 8 }} />
@@ -220,6 +282,7 @@ export function Sidebar() {
       )}
       <CheckoutDialog open={checkoutOpen} onClose={() => setCheckoutOpen(false)} />
       <RepoBrowser open={browserOpen} onClose={() => setBrowserOpen(false)} />
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }
