@@ -126,6 +126,9 @@ body,
 /* ===== M1: 工具栏 / 状态栏 ===== */
 
 .wc-toolbar {
+  /* relative：内部隐藏测量行（工具栏溢出适配）的定位锚点 */
+  position: relative;
+  overflow: hidden;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
@@ -199,12 +202,29 @@ body,
 /* ===== M1: 下部面板（差异 / 控制台）===== */
 
 .bottom-panel {
-  height: 300px;
+  /* 高度由 BottomPanel 组件内联控制（可拖动调节），默认 300px */
+  position: relative;
   border-top: 1px solid var(--border-color);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* 下部面板顶缘拖动条：调节高度，悬停/拖动时显示蓝色高亮 */
+.panel-resizer {
+  /* 完全放在面板内：面板 overflow hidden 会裁掉上探部分导致热区减半 */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  cursor: row-resize;
+  z-index: 20;
+}
+.panel-resizer:hover,
+.panel-resizer-active {
+  background: rgba(22, 119, 255, 0.3);
 }
 
 .bottom-panel .ant-tabs {

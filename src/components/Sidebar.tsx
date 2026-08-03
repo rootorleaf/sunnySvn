@@ -17,7 +17,6 @@ import { showSvnError } from "../utils/errorDialog";
 import { decodeSvnText } from "../utils/svnPath";
 import { CheckoutDialog } from "./CheckoutDialog";
 import { RepoBrowser } from "./RepoBrowser";
-import { ThemeToggle } from "./ThemeToggle";
 import { SettingsDialog } from "./SettingsDialog";
 import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
@@ -29,7 +28,7 @@ const { Text } = Typography;
 // 后端会校验所选目录是否为有效 svn 工作副本。
 // 每项支持右键菜单：在 Finder 中显示 / 从列表移除。
 // 支持从 Finder 拖动目录到侧栏区域直接添加为工作副本。
-// 底部有设置入口。
+// 设置入口在顶部按钮组（主题切换已并入设置对话框）。
 export function Sidebar() {
   const workingCopies = useAppStore((s) => s.workingCopies);
   const selectedId = useAppStore((s) => s.selectedId);
@@ -246,6 +245,13 @@ export function Sidebar() {
           <Button
             size="small"
             type="text"
+            icon={<SettingOutlined />}
+            onClick={() => setSettingsOpen(true)}
+            title={t("设置")}
+          />
+          <Button
+            size="small"
+            type="text"
             icon={<GlobalOutlined />}
             onClick={() => setBrowserOpen(true)}
             title={t("仓库浏览器")}
@@ -265,7 +271,6 @@ export function Sidebar() {
             onClick={handleAdd}
             title={t("添加本地工作副本")}
           />
-          <ThemeToggle />
         </Space>
       </div>
       <div ref={listWrapRef} style={{ flex: 1, overflow: "auto" }}>
@@ -341,24 +346,6 @@ export function Sidebar() {
               </Dropdown>
             );
           }}
-        />
-      </div>
-      {/* 底部：设置入口 */}
-      <div
-        style={{
-          padding: "8px 16px",
-          borderTop: "1px solid var(--border)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-end",
-        }}
-      >
-        <Button
-          size="small"
-          type="text"
-          icon={<SettingOutlined />}
-          onClick={() => setSettingsOpen(true)}
-          title={t("设置")}
         />
       </div>
       {dragOver && (

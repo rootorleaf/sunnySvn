@@ -1,6 +1,7 @@
 // 主视图：工具栏（更新/提交/日志/刷新）+ 文件状态表 + 下部面板（差异/控制台）+ 状态栏。
+// 工具栏支持窄窗口自适应：放不下的按钮自动收进「更多」下拉菜单（隐藏测量行 + ResizeObserver）。
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Alert, Button, Dropdown, Empty, Space, Spin, Typography, message } from "antd";
 import type { MenuProps } from "antd";
 import {
@@ -136,14 +137,104 @@ export function WorkingCopyView() {
     }
   }
 
+  // ===== 工具栏窄窗口自适应 =====
+  // 工具栏按钮统一声明成数组：可见部分渲染为按钮，放不下的收进「更多」菜单。
+  const toolButtons = useMemo(
+    () => [
+      {
+        key: "update",
+        label: t("更新"),
+        icon: <CloudDownloadOutlined />,
+        onClick: () => void handleUpdate(),
+        loading: updating,
+        title: t("更新 ⌘U"),
+      },
+      {
+        key: "commit",
+        label: t("提交"),
+        icon: <CheckOutlined />,
+        onClick: () => setCommitOpen(true),
+        disabled: changedCount === 0,
+        primary: true,
+        title: t("提交 ⌘↩"),
+      },
+      { key: "log", label: t("日志"), icon: <HistoryOutlined />, onClick: () => setLogOpen(true), title: t("日志 ⌘L") },
+      {
+        key: "branch",
+        label: t("分支/标签"),
+        icon: <BranchesOutlined />,
+        onClick: () => setBranchOpen(true),
+        title: t("分支/标签 ⌘B"),
+      },
+      { key: "switch", label: t("切换"), icon: <SwapOutlined />, onClick: () => setSwitchOpen(true) },
+      { key: "merge", label: t("合并"), icon: <MergeCellsOutlined />, onClick: () => setMergeOpen(true) },
+      { key: "refresh", label: t("刷新"), icon: <ReloadOutlined />, onClick: () => void refreshStatus(), title: t("刷新 ⌘R") },
+    ],
+    [changedCount, updating, handleUpdate, refreshStatus],
+  );
+
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(toolButtons.length);
+
+  // 用隐藏测量行里各按钮的真实宽度，算出当前工具栏能放下几个按钮
+  const recalcToolbar = useCallback(() => {
+    const bar = toolbarRef.current;
+    const meas = measureRef.current;
+    if (!bar || !meas) return;
+    const kids = Array.from(meas.children) as HTMLElement[];
+    const n = kids.length - 2; // 末两个固定元素：视图切换组、「更多」按钮
+    if (n < 0) return;
+    const cs = getComputedStyle(bar);
+    const inner = bar.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const GAP = 8;
+    // 固定部分始终可见：视图切换 + 更多（含两者间隙）
+    let used = kids[n].offsetWidth + GAP + kids[n + 1].offsetWidth;
+    let count = 0;
+    for (let i = 0; i < n; i++) {
+      const need = used + GAP + kids[i].offsetWidth;
+      if (need <= inner) {
+        used = need;
+        count++;
+      } else break;
+    }
+    setVisibleCount((c) => (c === count ? c : count));
+  }, []);
+
+  // 每次渲染后同步重测（语言切换重挂载、字号缩放变化都会自然覆盖）；
+  // 窗口/侧栏宽度变化由 ResizeObserver 触发。
+  useLayoutEffect(() => {
+    recalcToolbar();
+  });
+  useEffect(() => {
+    const bar = toolbarRef.current;
+    if (!bar) return;
+    const ro = new ResizeObserver(recalcToolbar);
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, [recalcToolbar, selected]);
+
+  const visibleButtons = toolButtons.slice(0, visibleCount);
+  const overflowButtons = toolButtons.slice(visibleCount);
+
   const moreMenu: MenuProps = {
     items: [
+      // 溢出的工具栏按钮排最前，与常驻菜单项用分隔线隔开
+      ...overflowButtons.map((b) => ({
+        key: b.key,
+        label: b.label,
+        icon: b.icon,
+        disabled: b.disabled || b.loading,
+      })),
+      ...(overflowButtons.length > 0 ? [{ type: "divider" as const }] : []),
       { key: "props", label: t("属性编辑"), icon: <ProfileOutlined /> },
       { key: "revgraph", label: t("修订版本图"), icon: <PartitionOutlined /> },
       { key: "cleanup", label: "Cleanup", icon: <ToolOutlined /> },
     ],
     onClick: ({ key }) => {
-      if (key === "cleanup") void handleCleanup();
+      const tb = toolButtons.find((b) => b.key === key);
+      if (tb) tb.onClick();
+      else if (key === "cleanup") void handleCleanup();
       else if (key === "props") setPropOpen(true);
       else if (key === "revgraph") setRevGraphOpen(true);
     },
@@ -159,35 +250,21 @@ export function WorkingCopyView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div className="wc-toolbar">
-        <Space>
-          <Button icon={<CloudDownloadOutlined />} onClick={() => void handleUpdate()} loading={updating} title={t("更新 ⌘U")}>
-            {t("更新")}
-          </Button>
-          <Button
-            type="primary"
-            icon={<CheckOutlined />}
-            disabled={changedCount === 0}
-            onClick={() => setCommitOpen(true)}
-            title={t("提交 ⌘↩")}
-          >
-            {t("提交")}
-          </Button>
-          <Button icon={<HistoryOutlined />} onClick={() => setLogOpen(true)} title={t("日志 ⌘L")}>
-            {t("日志")}
-          </Button>
-          <Button icon={<BranchesOutlined />} onClick={() => setBranchOpen(true)} title={t("分支/标签 ⌘B")}>
-            {t("分支/标签")}
-          </Button>
-          <Button icon={<SwapOutlined />} onClick={() => setSwitchOpen(true)}>
-            {t("切换")}
-          </Button>
-          <Button icon={<MergeCellsOutlined />} onClick={() => setMergeOpen(true)}>
-            {t("合并")}
-          </Button>
-          <Button icon={<ReloadOutlined />} onClick={() => void refreshStatus()} title={t("刷新 ⌘R")}>
-            {t("刷新")}
-          </Button>
+      <div className="wc-toolbar" ref={toolbarRef}>
+        <Space style={{ flexShrink: 0 }}>
+          {visibleButtons.map((b) => (
+            <Button
+              key={b.key}
+              type={b.primary ? "primary" : "default"}
+              icon={b.icon}
+              disabled={b.disabled}
+              loading={b.loading}
+              onClick={b.onClick}
+              title={b.title ?? b.label}
+            >
+              {b.label}
+            </Button>
+          ))}
           <Space.Compact>
             <Button
               size="small"
@@ -210,9 +287,35 @@ export function WorkingCopyView() {
             </Button>
           </Dropdown>
         </Space>
-        <Text type="secondary" ellipsis style={{ marginLeft: 8, flex: 1 }}>
+        <Text type="secondary" ellipsis style={{ marginLeft: 8, flex: 1, minWidth: 0 }}>
           {selected.path}
         </Text>
+        {/* 隐藏测量行：与真实工具栏同规格渲染全部元素，仅用于读取宽度 */}
+        <div
+          ref={measureRef}
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: -9999,
+            left: 0,
+            visibility: "hidden",
+            pointerEvents: "none",
+            display: "flex",
+            gap: 8,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {toolButtons.map((b) => (
+            <Button key={b.key} type={b.primary ? "primary" : "default"} icon={b.icon}>
+              {b.label}
+            </Button>
+          ))}
+          <Space.Compact>
+            <Button size="small" icon={<ApartmentOutlined />} />
+            <Button size="small" icon={<UnorderedListOutlined />} />
+          </Space.Compact>
+          <Button icon={<DownOutlined />}>{t("更多")}</Button>
+        </div>
       </div>
 
       <div style={{ flex: 1, overflow: "hidden", position: "relative", minHeight: 0 }}>
