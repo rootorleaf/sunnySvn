@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Badge, Button, Dropdown, List, Modal, Space, Typography, Popconfirm, message } from "antd";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Badge, Button, Dropdown, Input, List, Modal, Space, Typography, Popconfirm, message } from "antd";
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -8,6 +8,7 @@ import {
   CloudDownloadOutlined,
   GlobalOutlined,
   SettingOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -44,6 +45,17 @@ export function Sidebar() {
   const sidebarRef = useRef<HTMLDivElement>(null);
   // 各工作副本的改动文件数（id → count），侧栏角标用
   const [counts, setCounts] = useState<Record<string, number>>({});
+  // 底部筛选器：按名称/路径过滤列表（不区分大小写）
+  const [filterText, setFilterText] = useState("");
+  const filtered = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    if (!q) return workingCopies;
+    return workingCopies.filter(
+      (wc) =>
+        decodeSvnText(wc.name).toLowerCase().includes(q) ||
+        wc.path.toLowerCase().includes(q),
+    );
+  }, [workingCopies, filterText]);
 
   // 工作副本列表变化时，异步获取每个的改动数
   useEffect(() => {
@@ -92,6 +104,7 @@ export function Sidebar() {
 
   function handleItemPointerDown(e: React.PointerEvent, index: number) {
     if (e.button !== 0) return; // 仅左键；右键留给上下文菜单
+    if (filterText.trim()) return; // 筛选中列表是子集，禁用拖动排序避免下标错乱
     if ((e.target as HTMLElement).closest("button")) return; // 删除按钮等不触发拖动
     didDragRef.current = false;
     const startY = e.clientY;
@@ -275,15 +288,19 @@ export function Sidebar() {
       </div>
       <div ref={listWrapRef} style={{ flex: 1, overflow: "auto" }}>
         <List
-          dataSource={workingCopies}
-          locale={{ emptyText: t("尚未添加工作副本（可从 Finder 拖入目录）") }}
+          dataSource={filtered}
+          locale={{
+            emptyText: filterText.trim()
+              ? t("没有匹配的工作副本")
+              : t("尚未添加工作副本（可从 Finder 拖入目录）"),
+          }}
           renderItem={(wc, index) => {
             let cls = "wc-item";
             if (wc.id === selectedId) cls += " wc-item-selected";
             if (dragVisual) {
               if (dragVisual.from === index) cls += " wc-item-dragging";
               if (dragVisual.gap === index) cls += " wc-drop-before";
-              else if (index === workingCopies.length - 1 && dragVisual.gap === workingCopies.length)
+              else if (index === filtered.length - 1 && dragVisual.gap === filtered.length)
                 cls += " wc-drop-after";
             }
             return (
@@ -346,6 +363,17 @@ export function Sidebar() {
               </Dropdown>
             );
           }}
+        />
+      </div>
+      {/* 底部筛选器：按名称/路径过滤工作副本 */}
+      <div style={{ padding: "6px 8px", borderTop: "1px solid var(--border)" }}>
+        <Input
+          size="small"
+          allowClear
+          prefix={<SearchOutlined style={{ color: "var(--text-secondary)" }} />}
+          placeholder={t("筛选器")}
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
         />
       </div>
       {dragOver && (

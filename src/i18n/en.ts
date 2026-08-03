@@ -10,6 +10,8 @@ export const EN: Record<string, string> = {
   "设置": "Settings",
   "更多": "More",
   "刷新": "Refresh",
+  "筛选器": "Filter",
+  "没有匹配的工作副本": "No matching working copies",
   "修订": "Revision",
   "作者": "Author",
   "日期": "Date",
