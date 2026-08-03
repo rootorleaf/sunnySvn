@@ -34,6 +34,7 @@ interface AppState {
   loadWorkingCopies: () => Promise<void>;
   addWorkingCopy: (path: string) => Promise<void>;
   removeWorkingCopy: (id: string) => Promise<void>;
+  reorderWorkingCopies: (ids: string[]) => Promise<void>;
   selectWorkingCopy: (id: string | null) => void;
   refreshStatus: () => Promise<void>;
   updateSelected: () => Promise<number | null>;
@@ -93,6 +94,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ workingCopies: list });
     if (get().selectedId === id) {
       set({ selectedId: null, statusEntries: [] });
+    }
+  },
+
+  async reorderWorkingCopies(ids: string[]) {
+    // 乐观更新：先按新顺序重排本地列表再持久化，失败则回读磁盘配置
+    const { workingCopies } = get();
+    const byId = new Map(workingCopies.map((w) => [w.id, w]));
+    const next = ids
+      .map((id) => byId.get(id))
+      .filter((w): w is WorkingCopy => w != null);
+    for (const w of workingCopies) {
+      if (!ids.includes(w.id)) next.push(w);
+    }
+    set({ workingCopies: next });
+    try {
+      const list = await configApi.reorderWorkingCopies(ids);
+      set({ workingCopies: list });
+    } catch {
+      await get().loadWorkingCopies();
     }
   },
 

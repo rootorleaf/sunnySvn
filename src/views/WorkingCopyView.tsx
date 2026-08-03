@@ -31,6 +31,7 @@ import { PropertyDialog } from "../components/PropertyDialog";
 import { RevisionGraphModal } from "../components/RevisionGraphModal";
 import * as svnApi from "../api/svn";
 import { showSvnError } from "../utils/errorDialog";
+import { decodeSvnText } from "../utils/svnPath";
 import { useHotkeys } from "../hooks/useHotkeys";
 import { t } from "../i18n";
 
@@ -237,7 +238,7 @@ export function WorkingCopyView() {
       <BottomPanel />
 
       <div className="wc-statusbar">
-        <span>{selected.name}</span>
+        <span>{decodeSvnText(selected.name)}</span>
         <span>
           {t("{0} 个改动", changedCount)}
           {hasConflicts && <span style={{ color: "#cf1322", marginLeft: 8 }}>· {t("存在冲突")}</span>}

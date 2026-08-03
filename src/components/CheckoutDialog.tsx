@@ -19,6 +19,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useAppStore } from "../stores/appStore";
 import * as svnApi from "../api/svn";
+import { decodeSvnText } from "../utils/svnPath";
 import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { TaskDone, TaskLine } from "../types";
@@ -123,8 +124,9 @@ export function CheckoutDialog({ open: visible, onClose }: { open: boolean; onCl
   async function pickDest() {
     const selected = await open({ directory: true, multiple: false, title: t("选择存放目录") });
     if (typeof selected === "string") {
-      // 目标 = 所选目录 + 仓库末段名
-      const repoName = url.replace(/\/+$/, "").split("/").pop() || "checkout";
+      // 目标 = 所选目录 + 仓库末段名（URL 编码的中文解码成真实文字，避免本地目录名变成 %E5%AE... 乱码）
+      const rawName = url.replace(/\/+$/, "").split("/").pop() || "checkout";
+      const repoName = decodeSvnText(rawName).replace(/\//g, "_");
       setDest(`${selected}/${repoName}`);
     }
   }

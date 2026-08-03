@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Collapse, Input, Modal, Radio, Space, Typography, message } from "antd";
 import * as svnApi from "../api/svn";
+import { decodeSvnText } from "../utils/svnPath";
 import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { AuthInput } from "../types";
@@ -40,8 +41,9 @@ export function BranchDialog({
     svnApi
       .getInfo(wcPath)
       .then((info) => {
-        setSrcUrl(info.url);
-        setRepoRoot(info.repositoryRoot);
+        // 解码百分号编码，中文路径可读；svn 命令接受未编码 UTF-8 URL
+        setSrcUrl(decodeSvnText(info.url));
+        setRepoRoot(decodeSvnText(info.repositoryRoot));
       })
       .catch((e) => setError(e as SvnError));
   }, [open, wcPath]);

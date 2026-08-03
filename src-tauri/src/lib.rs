@@ -37,6 +37,7 @@ pub fn run() {
             config_cmd::list_working_copies,
             config_cmd::add_working_copy,
             config_cmd::remove_working_copy,
+            config_cmd::reorder_working_copies,
             config_cmd::list_recent_messages,
             config_cmd::get_svn_path_override,
             config_cmd::set_svn_path_override,

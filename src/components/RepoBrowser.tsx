@@ -19,6 +19,7 @@ import type { ColumnsType } from "antd/es/table";
 import { FolderOutlined, FileOutlined, ReloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import * as svnApi from "../api/svn";
+import { decodeSvnText } from "../utils/svnPath";
 import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { RepoEntry } from "../types";
@@ -80,9 +81,17 @@ export function RepoBrowser({ open, onClose }: { open: boolean; onClose: () => v
     try {
       const resolved = await svnApi.resolveRepoUrl(target);
       if (resolved) {
-        target = resolved.replace(/\/+$/, "");
+        // 解析出的 URL 是百分号编码的，解码成可读中文（svn 接受未编码 UTF-8 URL）
+        target = decodeSvnText(resolved).replace(/\/+$/, "");
         setRootUrl(target);
         message.info(t("已识别为工作副本，自动切换到其仓库地址"));
+      } else if (target.includes("://")) {
+        // 直接粘贴的编码 URL 也解码回填；本地路径不处理（目录名可能字面含 %）
+        const decoded = decodeSvnText(target);
+        if (decoded !== target) {
+          target = decoded;
+          setRootUrl(decoded);
+        }
       }
     } catch (e) {
       setError(e as SvnError);

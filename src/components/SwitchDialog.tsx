@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Alert, Collapse, Input, List, Modal, Space, Tag, Typography, message } from "antd";
 import { BranchesOutlined } from "@ant-design/icons";
 import * as svnApi from "../api/svn";
+import { decodeSvnText } from "../utils/svnPath";
 import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { AuthInput, RepoEntry } from "../types";
@@ -40,9 +41,10 @@ export function SwitchDialog({
     svnApi
       .getInfo(wcPath)
       .then(async (info) => {
-        setCurrentUrl(info.url);
+        // svn info 返回的 URL 是百分号编码的，中文路径解码后展示/使用（svn 接受未编码 UTF-8 URL）
+        setCurrentUrl(decodeSvnText(info.url));
         // 尝试列出 branches / tags 下的条目作为候选
-        const root = info.repositoryRoot.replace(/\/+$/, "");
+        const root = decodeSvnText(info.repositoryRoot).replace(/\/+$/, "");
         const auth: AuthInput = {};
         const found: { label: string; url: string }[] = [];
         for (const dir of ["branches", "tags"]) {

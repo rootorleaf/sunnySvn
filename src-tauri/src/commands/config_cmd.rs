@@ -151,6 +151,24 @@ pub fn remove_working_copy(id: String) -> Result<Vec<WorkingCopy>, SvnError> {
     with_config(|cfg| cfg.working_copies.clone())
 }
 
+/// 按给定 id 顺序重排工作副本（侧栏拖动排序后调用）。
+/// 未知 id 忽略；ids 中缺失的条目按原相对顺序追加在末尾。
+#[tauri::command]
+pub fn reorder_working_copies(ids: Vec<String>) -> Result<Vec<WorkingCopy>, SvnError> {
+    with_config(|cfg| {
+        let mut ordered: Vec<WorkingCopy> = Vec::with_capacity(cfg.working_copies.len());
+        for id in &ids {
+            if let Some(pos) = cfg.working_copies.iter().position(|w| &w.id == id) {
+                ordered.push(cfg.working_copies.remove(pos));
+            }
+        }
+        ordered.append(&mut cfg.working_copies);
+        cfg.working_copies = ordered;
+    })?;
+    with_config(|cfg| save_to_disk(cfg))??;
+    with_config(|cfg| cfg.working_copies.clone())
+}
+
 /// 最大保留的提交信息条数。
 const MAX_RECENT_MESSAGES: usize = 20;
 

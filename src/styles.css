@@ -166,6 +166,36 @@ body,
   background: var(--selected-bg);
 }
 
+/* 侧栏拖动排序：被拖项半透明，插入间隙显示蓝色指示线 */
+.wc-item {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wc-item-dragging {
+  opacity: 0.45;
+}
+.wc-drop-before {
+  box-shadow: inset 0 2px 0 0 #1677ff;
+}
+.wc-drop-after {
+  box-shadow: inset 0 -2px 0 0 #1677ff;
+}
+
+/* 侧栏右缘拖动条：调节宽度，悬停/拖动时显示蓝色高亮 */
+.sider-resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 20;
+}
+.sider-resizer:hover,
+.sider-resizer-active {
+  background: rgba(22, 119, 255, 0.3);
+}
+
 /* ===== M1: 下部面板（差异 / 控制台）===== */
 
 .bottom-panel {

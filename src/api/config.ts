@@ -19,6 +19,11 @@ export function removeWorkingCopy(id: string): Promise<WorkingCopy[]> {
   return invoke<WorkingCopy[]>("remove_working_copy", { id });
 }
 
+/** 按 id 顺序重排工作副本（侧栏拖动排序后持久化），返回更新后的完整列表 */
+export function reorderWorkingCopies(ids: string[]): Promise<WorkingCopy[]> {
+  return invoke<WorkingCopy[]>("reorder_working_copies", { ids });
+}
+
 /** 读取最近使用的提交信息（新的在前，提交成功后由后端自动记录） */
 export function listRecentMessages(): Promise<string[]> {
   return invoke<string[]>("list_recent_messages");

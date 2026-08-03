@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Collapse, Input, Modal, Space, Typography, message } from "antd";
 import * as svnApi from "../api/svn";
+import { decodeSvnText } from "../utils/svnPath";
 import { t } from "../i18n";
 import type { SvnError } from "../api/svn";
 import type { AuthInput, MergeResult } from "../types";
@@ -40,7 +41,7 @@ export function MergeDialog({
     setRevRange("");
     svnApi
       .getInfo(wcPath)
-      .then((info) => setCurrentUrl(info.url))
+      .then((info) => setCurrentUrl(decodeSvnText(info.url)))
       .catch((e) => setError(e as SvnError));
   }, [open, wcPath]);
 
