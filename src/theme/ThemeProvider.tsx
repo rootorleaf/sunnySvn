@@ -83,6 +83,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const isDark = mode === "system" ? systemDark : mode === "dark";
 
+  // 把生效主题同步到 <html data-theme>，styles.css 里的自定义变量据此切换
+  // （不能只靠 prefers-color-scheme 媒体查询：应用内选择可能与系统外观不同）
+  useEffect(() => {
+    document.documentElement.dataset.theme = isDark ? "dark" : "light";
+  }, [isDark]);
+
   const setMode = (m: ThemeMode) => {
     setModeState(m);
     try {
@@ -112,7 +118,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         locale={locale === "zh" ? zhCN : enUS}
         theme={{
           algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-          token: { fontSize: FONT_PX[fontScale], borderRadius: 4 },
+          token: {
+            fontSize: FONT_PX[fontScale],
+            borderRadius: 4,
+            // 深色整体提亮：darkAlgorithm 默认 Layout 纯黑(#000)、容器 #141414 太黑，
+            // 改用分层深灰（参考 VS Code 深色的层次感）
+            ...(isDark
+              ? {
+                  colorBgLayout: "#1f1f1f",
+                  colorBgContainer: "#242424",
+                  colorBgElevated: "#2c2c2c",
+                  colorBorder: "#3d3d3d",
+                  colorBorderSecondary: "#333333",
+                }
+              : {}),
+          },
         }}
       >
         {children}
