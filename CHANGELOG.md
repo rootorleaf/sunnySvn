@@ -8,6 +8,9 @@
 
 ## [Unreleased]
 
+### 2026-08-07 — 修复含 `@` 文件名提交失败(E200009 peg revision)
+- **修复**:含 `@` 的文件名(如 iOS Retina 资源 `Icon@2x.png`、`iPad App-76@2x.png`)提交时报 `E200009: a peg revision is not allowed here`。根因是 svn 把路径里的 `@` 当作“路径与版本”分隔符,`@2x.png` 被解析为 peg 版本号。新增 `peg()` 转义:对含 `@` 的路径在末尾补一个 `@`(SVN 只认最后一个 `@`),并统一经 `path_args()` 拼装命令参数。覆盖所有传文件路径的 svn 子命令——`commit`(`--targets` 清单逐行转义)、`add`/`delete`/`revert`/`resolve`/`lock`/`unlock`/`blame`/`cat`/`proplist`/`propset`/`diff`。peg 转义仅作用于 svn 命令行参数,文件系统读写仍用原始路径。补 `peg`/`path_args` 单测。
+
 ### 2026-08-03 — 侧栏底部筛选器
 - **新增**:侧栏底部增加筛选输入框(放大镜图标),按名称/路径实时过滤工作副本列表,不区分大小写,名称匹配用解码后的中文;可一键清空。筛选中列表为子集,拖动排序临时禁用避免下标错乱;无匹配时显示对应空态提示。
 

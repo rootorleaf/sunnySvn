@@ -74,9 +74,24 @@ fn ensure_rel_paths(files: &[String]) -> Result<(), SvnError> {
     Ok(())
 }
 
-/// 把 String 列表借成 &str 列表，便于拼接 args。
-fn as_strs(v: &[String]) -> Vec<&str> {
-    v.iter().map(|s| s.as_str()).collect()
+/// peg-revision 转义：svn 把路径里的 `@` 当成“路径与版本”的分隔符，
+/// 故 `Icon@2x.png` 会被误解析为“路径 Icon、peg 版本 2x.png”而报 E200009。
+/// 约定做法是给含 `@` 的路径末尾再补一个 `@`（SVN 只认最后一个 `@` 作分隔符）。
+/// 无 `@` 或已以 `@` 结尾则原样返回（克隆一份以便统一 owned）。
+fn peg(p: &str) -> String {
+    if p.contains('@') && !p.ends_with('@') {
+        format!("{p}@")
+    } else {
+        p.to_string()
+    }
+}
+
+/// 拼装 svn 子命令参数：固定字符串前缀 + 经 peg 转义的文件路径列表（owned）。
+/// 调用方再借成 &[&str] 传给 runner。
+fn path_args(prefix: &[&str], files: &[String]) -> Vec<String> {
+    let mut v: Vec<String> = prefix.iter().map(|s| (*s).to_string()).collect();
+    v.extend(files.iter().map(|f| peg(f)));
+    v
 }
 
 /// 读取工作副本状态：`svn status --xml`（不带 -u，仅本地状态，快）。
@@ -132,8 +147,8 @@ pub async fn commit(path: &str, files: &[String], message: &str) -> Result<i64, 
 /// 把未版本化文件加入版本控制。--parents 自动补齐中间目录。
 pub async fn add(path: &str, files: &[String]) -> Result<(), SvnError> {
     ensure_rel_paths(files)?;
-    let mut args = vec!["add", "--parents", "--"];
-    args.extend(as_strs(files));
+    let owned = path_args(&["add", "--parents", "--"], files);
+    let args: Vec<&str> = owned.iter().map(String::as_str).collect();
     runner::run_in(path, &args).await?;
     Ok(())
 }
@@ -148,8 +163,8 @@ pub async fn delete(
     ensure_rel_paths(unversioned)?;
 
     if !versioned.is_empty() {
-        let mut args = vec!["delete", "--force", "--"];
-        args.extend(as_strs(versioned));
+        let owned = path_args(&["delete", "--force", "--"], versioned);
+        let args: Vec<&str> = owned.iter().map(String::as_str).collect();
         runner::run_in(path, &args).await?;
     }
     for rel in unversioned {
@@ -169,8 +184,8 @@ pub async fn delete(
 /// 还原本地改动（非递归，按选中项逐个还原）。
 pub async fn revert(path: &str, files: &[String]) -> Result<(), SvnError> {
     ensure_rel_paths(files)?;
-    let mut args = vec!["revert", "--"];
-    args.extend(as_strs(files));
+    let owned = path_args(&["revert", "--"], files);
+    let args: Vec<&str> = owned.iter().map(String::as_str).collect();
     runner::run_in(path, &args).await?;
     Ok(())
 }
@@ -200,7 +215,9 @@ pub async fn file_diff(path: &str, file: &str) -> Result<FileDiff, SvnError> {
     }
 
     // BASE 内容：不在版本控制或无 BASE 时视为空（cat 失败不算错误）
-    let old_text = match runner::query_in(path, &["cat", "-r", "BASE", "--", file]).await {
+    // peg 转义仅用于 svn argv；下方文件系统读取与报错仍用原始 file
+    let f = peg(file);
+    let old_text = match runner::query_in(path, &["cat", "-r", "BASE", "--", f.as_str()]).await {
         Ok(out) => ensure_text(out.stdout.into_bytes(), file)?,
         Err(_) => String::new(),
     };
@@ -355,8 +372,8 @@ pub async fn resolve(
     if !allowed.contains(&accept) {
         return Err(SvnError::new("BAD_ACCEPT", format!("不支持的 resolve 策略: {accept}")));
     }
-    let mut args = vec!["resolve", "--accept", accept, "--"];
-    args.extend(as_strs(files));
+    let owned = path_args(&["resolve", "--accept", accept, "--"], files);
+    let args: Vec<&str> = owned.iter().map(String::as_str).collect();
     runner::run_in(path, &args).await?;
     Ok(())
 }
@@ -369,13 +386,15 @@ pub async fn blame(path: &str, file: &str) -> Result<Vec<BlameLine>, SvnError> {
         return Err(SvnError::new("IS_DIRECTORY", format!("{file} 是目录，无法 blame")));
     }
 
-    let out = runner::query_in(path, &["blame", "--xml", "--", file]).await?;
+    // peg 转义仅用于 svn argv；上方 full（文件系统路径）仍用原始 file
+    let f = peg(file);
+    let out = runner::query_in(path, &["blame", "--xml", "--", f.as_str()]).await?;
     let mut lines = parse_blame(&out.stdout)?;
 
     // 补齐正文：优先工作区文件，失败则 cat
     let content = match std::fs::read_to_string(&full) {
         Ok(s) => s,
-        Err(_) => match runner::query_in(path, &["cat", "--", file]).await {
+        Err(_) => match runner::query_in(path, &["cat", "--", f.as_str()]).await {
             Ok(o) => o.stdout,
             Err(_) => String::new(),
         },
@@ -419,7 +438,8 @@ pub async fn proplist(path: &str, target: &str) -> Result<Vec<SvnProperty>, SvnE
     if target != "." {
         ensure_rel_paths(&[target.to_string()])?;
     }
-    let out = runner::query_in(path, &["proplist", "-v", "--xml", "--", target]).await?;
+    let t = peg(target);
+    let out = runner::query_in(path, &["proplist", "-v", "--xml", "--", t.as_str()]).await?;
     parse_proplist(&out.stdout)
 }
 
@@ -431,15 +451,16 @@ pub async fn propset(path: &str, target: &str, name: &str, value: &str) -> Resul
     if name.is_empty() || name.contains(['\n', '\r', '=']) {
         return Err(SvnError::new("BAD_PROP", format!("非法属性名: {name}")));
     }
+    let t = peg(target);
     if value.is_empty() {
-        runner::run_in(path, &["propdel", name, "--", target]).await?;
+        runner::run_in(path, &["propdel", name, "--", t.as_str()]).await?;
     } else {
         // 用临时文件传多行值，避免 shell/参数转义问题
         let tmp = write_prop_file(value)?;
         let tmp_s = tmp.to_string_lossy().into_owned();
         let res = runner::run_in(
             path,
-            &["propset", name, "-F", &tmp_s, "--", target],
+            &["propset", name, "-F", &tmp_s, "--", t.as_str()],
         )
         .await;
         let _ = std::fs::remove_file(&tmp);
@@ -499,7 +520,7 @@ pub async fn lock(path: &str, files: &[String], message: Option<&str>) -> Result
         }
     }
     owned.push("--".into());
-    owned.extend(files.iter().cloned());
+    owned.extend(files.iter().map(|f| peg(f)));
     let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
     runner::run_in(path, &refs).await?;
     Ok(())
@@ -508,8 +529,8 @@ pub async fn lock(path: &str, files: &[String], message: Option<&str>) -> Result
 /// 解锁文件。
 pub async fn unlock(path: &str, files: &[String]) -> Result<(), SvnError> {
     ensure_rel_paths(files)?;
-    let mut args = vec!["unlock", "--"];
-    args.extend(as_strs(files));
+    let owned = path_args(&["unlock", "--"], files);
+    let args: Vec<&str> = owned.iter().map(String::as_str).collect();
     runner::run_in(path, &args).await?;
     Ok(())
 }
@@ -549,7 +570,7 @@ pub async fn rev_diff(
     if let Some(f) = file {
         ensure_rel_paths(&[f.to_string()])?;
         owned.push("--".into());
-        owned.push(f.into());
+        owned.push(peg(f));
     }
     let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
     let out = runner::query_in(path, &refs).await?;
@@ -575,7 +596,8 @@ fn write_targets_file(files: &[String]) -> Result<PathBuf, SvnError> {
         "sunnysvn-targets-{}-{n}.txt",
         std::process::id()
     ));
-    std::fs::write(&p, files.join("\n"))
+    let body: String = files.iter().map(|f| peg(f)).collect::<Vec<_>>().join("\n");
+    std::fs::write(&p, body)
         .map_err(|e| SvnError::internal(format!("写入提交清单失败: {e}")))?;
     Ok(p)
 }
@@ -662,5 +684,29 @@ mod tests {
         assert!(ensure_text(vec![0x68, 0x00, 0x69], "f").is_err()); // NUL
         assert!(ensure_text(vec![0xff, 0xfe], "f").is_err()); // 非 UTF-8
         assert_eq!(ensure_text("中文ok".as_bytes().to_vec(), "f").unwrap(), "中文ok");
+    }
+
+    #[test]
+    fn peg_escapes_at_in_path() {
+        // iOS Retina 命名：含 @ 必须补尾 @，否则 svn 把 @2x.png 当 peg 版本
+        assert_eq!(peg("Icon@2x.png"), "Icon@2x.png@");
+        assert_eq!(peg("Assets/AppIcon.appiconset/iPad App-76@2x.png"), "Assets/AppIcon.appiconset/iPad App-76@2x.png@");
+        // @ 出现在目录名里同样要补
+        assert_eq!(peg("foo@bar/baz.txt"), "foo@bar/baz.txt@");
+        // 无 @ 原样返回
+        assert_eq!(peg("src/main.rs"), "src/main.rs");
+        assert_eq!(peg("说明 文档.md"), "说明 文档.md");
+        // 已以 @ 结尾不再补
+        assert_eq!(peg("already@.png@"), "already@.png@");
+    }
+
+    #[test]
+    fn path_args_applies_peg_per_file() {
+        let files: Vec<String> = vec!["Icon@2x.png".into(), "plain.txt".into()];
+        let args = path_args(&["revert", "--"], &files);
+        assert_eq!(
+            args,
+            vec!["revert".to_string(), "--".to_string(), "Icon@2x.png@".to_string(), "plain.txt".to_string()]
+        );
     }
 }
